@@ -241,8 +241,32 @@ def show_slide_preview(slide, slide_num, config):
     if config.get("background_image") and os.path.exists(config["background_image"]):
         bg_style = f"background-image: url('{config['background_image']}'); background-size: cover; background-position: center;"
     
-    # Preview container with actual slide styling
-    st.markdown(f"""
+    # Content styling helper
+    def get_styled_text(text, config):
+        """Apply style tag colors"""
+        text = re.sub(r'\[step\]\s*', '', text)
+        
+        if '[vocabulary]' in text:
+            text = text.replace('[vocabulary]', '')
+            vocab_color = rgb_to_hex(config["styles"]["vocabulary"]["color"])
+            return f'<span style="color: {vocab_color}; font-weight: bold;">{text}</span>'
+        elif '[question]' in text:
+            text = text.replace('[question]', '')
+            q_color = rgb_to_hex(config["styles"]["question"]["color"])
+            return f'<span style="color: {q_color};">{text}</span>'
+        elif '[answer]' in text:
+            text = text.replace('[answer]', '')
+            a_color = rgb_to_hex(config["styles"]["answer"]["color"])
+            return f'<span style="color: {a_color}; font-style: italic;">{text}</span>'
+        elif '[emphasis]' in text:
+            text = text.replace('[emphasis]', '')
+            e_color = rgb_to_hex(config["styles"]["emphasis"]["color"])
+            return f'<span style="color: {e_color}; font-weight: bold;">{text}</span>'
+        
+        return text
+    
+    # Build complete HTML structure
+    html_content = f"""
         <div style="
             border: 2px solid #ddd;
             border-radius: 8px;
@@ -268,100 +292,88 @@ def show_slide_preview(slide, slide_num, config):
                 ">
                     {slide['title'] if slide['title'] else 'Untitled Slide'}
                 </h2>
-    """, unsafe_allow_html=True)
-    
-    # Content styling helper
-    def get_styled_text(text, config):
-        """Apply style tag colors"""
-        text = re.sub(r'\[step\]\s*', '', text)
-        
-        if '[vocabulary]' in text:
-            text = text.replace('[vocabulary]', '')
-            vocab_color = rgb_to_hex(config["styles"]["vocabulary"]["color"])
-            return f'<span style="color: {vocab_color}; font-weight: bold;">{text}</span>'
-        elif '[question]' in text:
-            text = text.replace('[question]', '')
-            q_color = rgb_to_hex(config["styles"]["question"]["color"])
-            return f'<span style="color: {q_color};">{text}</span>'
-        elif '[answer]' in text:
-            text = text.replace('[answer]', '')
-            a_color = rgb_to_hex(config["styles"]["answer"]["color"])
-            return f'<span style="color: {a_color}; font-style: italic;">{text}</span>'
-        elif '[emphasis]' in text:
-            text = text.replace('[emphasis]', '')
-            e_color = rgb_to_hex(config["styles"]["emphasis"]["color"])
-            return f'<span style="color: {e_color}; font-weight: bold;">{text}</span>'
-        
-        return text
+    """
     
     # Single column content
     if has_content:
-        st.markdown(f'<div style="font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 18px; line-height: 1.8;">', unsafe_allow_html=True)
+        html_content += f'<div style="font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 18px; line-height: 1.8;">'
         for item in slide['content']:
             if item:
                 styled = get_styled_text(item, config)
-                st.markdown(f'<p style="margin: 12px 0;">{styled}</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+                html_content += f'<p style="margin: 12px 0;">{styled}</p>'
+        html_content += '</div>'
     
     # Two column layout
     elif has_two_col:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f'<div style="font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 18px; padding-right: 20px;">', unsafe_allow_html=True)
-            for item in slide['left']:
-                if item:
-                    styled = get_styled_text(item, config)
-                    st.markdown(f'<p style="margin: 12px 0;">{styled}</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+        html_content += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">'
         
-        with col2:
-            st.markdown(f'<div style="font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 18px; padding-left: 20px; border-left: 2px solid #ccc;">', unsafe_allow_html=True)
-            for item in slide['right']:
-                if item:
-                    styled = get_styled_text(item, config)
-                    st.markdown(f'<p style="margin: 12px 0;">{styled}</p>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+        # Left column
+        html_content += f'<div style="font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 18px;">'
+        for item in slide['left']:
+            if item:
+                styled = get_styled_text(item, config)
+                html_content += f'<p style="margin: 12px 0;">{styled}</p>'
+        html_content += '</div>'
+        
+        # Right column
+        html_content += f'<div style="font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 18px; border-left: 2px solid #ccc; padding-left: 20px;">'
+        for item in slide['right']:
+            if item:
+                styled = get_styled_text(item, config)
+                html_content += f'<p style="margin: 12px 0;">{styled}</p>'
+        html_content += '</div>'
+        
+        html_content += '</div>'
     
     # Four box layout
     elif has_four_box:
-        col1, col2 = st.columns(2)
+        html_content += '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">'
         
-        with col1:
-            if slide['lefttop']:
-                st.markdown(f'<div style="border: 1px solid #ddd; padding: 15px; margin: 5px; border-radius: 5px; background: rgba(255,255,255,0.7); font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 16px;">', unsafe_allow_html=True)
-                for item in slide['lefttop']:
-                    if item:
-                        styled = get_styled_text(item, config)
-                        st.markdown(f'<p style="margin: 8px 0;">{styled}</p>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            if slide['leftbottom']:
-                st.markdown(f'<div style="border: 1px solid #ddd; padding: 15px; margin: 5px; border-radius: 5px; background: rgba(255,255,255,0.7); font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 16px;">', unsafe_allow_html=True)
-                for item in slide['leftbottom']:
-                    if item:
-                        styled = get_styled_text(item, config)
-                        st.markdown(f'<p style="margin: 8px 0;">{styled}</p>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+        # Left column
+        html_content += '<div>'
+        if slide['lefttop']:
+            html_content += f'<div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: rgba(255,255,255,0.7); font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 16px;">'
+            for item in slide['lefttop']:
+                if item:
+                    styled = get_styled_text(item, config)
+                    html_content += f'<p style="margin: 8px 0;">{styled}</p>'
+            html_content += '</div>'
         
-        with col2:
-            if slide['righttop']:
-                st.markdown(f'<div style="border: 1px solid #ddd; padding: 15px; margin: 5px; border-radius: 5px; background: rgba(255,255,255,0.7); font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 16px;">', unsafe_allow_html=True)
-                for item in slide['righttop']:
-                    if item:
-                        styled = get_styled_text(item, config)
-                        st.markdown(f'<p style="margin: 8px 0;">{styled}</p>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-            
-            if slide['rightbottom']:
-                st.markdown(f'<div style="border: 1px solid #ddd; padding: 15px; margin: 5px; border-radius: 5px; background: rgba(255,255,255,0.7); font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 16px;">', unsafe_allow_html=True)
-                for item in slide['rightbottom']:
-                    if item:
-                        styled = get_styled_text(item, config)
-                        st.markdown(f'<p style="margin: 8px 0;">{styled}</p>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+        if slide['leftbottom']:
+            html_content += f'<div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: rgba(255,255,255,0.7); font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 16px;">'
+            for item in slide['leftbottom']:
+                if item:
+                    styled = get_styled_text(item, config)
+                    html_content += f'<p style="margin: 8px 0;">{styled}</p>'
+            html_content += '</div>'
+        html_content += '</div>'
+        
+        # Right column
+        html_content += '<div>'
+        if slide['righttop']:
+            html_content += f'<div style="border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; background: rgba(255,255,255,0.7); font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 16px;">'
+            for item in slide['righttop']:
+                if item:
+                    styled = get_styled_text(item, config)
+                    html_content += f'<p style="margin: 8px 0;">{styled}</p>'
+            html_content += '</div>'
+        
+        if slide['rightbottom']:
+            html_content += f'<div style="border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: rgba(255,255,255,0.7); font-family: {body_font}, sans-serif; color: {text_hex}; font-size: 16px;">'
+            for item in slide['rightbottom']:
+                if item:
+                    styled = get_styled_text(item, config)
+                    html_content += f'<p style="margin: 8px 0;">{styled}</p>'
+            html_content += '</div>'
+        html_content += '</div>'
+        
+        html_content += '</div>'
     
     # Close slide container
-    st.markdown('</div></div>', unsafe_allow_html=True)
+    html_content += '</div></div>'
+    
+    # Render all HTML at once
+    st.markdown(html_content, unsafe_allow_html=True)
     
     # Show notes if present (keep this yellow styling)
     if slide['notes']:
@@ -395,7 +407,6 @@ def show_slide_preview(slide, slide_num, config):
             </span>
         </div>
     ''', unsafe_allow_html=True)
-
 
 # ============================================================================
 # VALIDATION AND GENERATION FUNCTIONS
@@ -1329,4 +1340,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
