@@ -1,4 +1,4 @@
-tion"""
+"""
 Universal PowerPoint Generator - Web App
 =========================================
 Fully customizable presentation generator for educators
@@ -1340,6 +1340,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
