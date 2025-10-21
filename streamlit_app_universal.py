@@ -27,6 +27,18 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+# Unified visual style for help/reference sections
+st.markdown("""
+    <style>
+    h2, h3 {
+        font-family: 'Montserrat', sans-serif;
+        font-weight: 600;
+    }
+    .stCodeBlock {
+        font-size: 0.9rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Custom CSS
 st.markdown("""
@@ -427,101 +439,185 @@ def generate_presentation():
         st.exception(e)
 
 
-def show_reference():
-    """Show quick reference guide"""
-    st.header("📖 Quick Reference Guide")
-    
-    st.markdown(get_quick_reference())
-    
-    st.markdown("### Layout Types")
-    
-    st.markdown("**Single Column:**")
-    st.code("Content: Main point", language="text")
-    
-    st.markdown("**Two Columns:**")
-    st.code("Left: Left content\nRight: Right content", language="text")
-    
-    st.markdown("**Four Boxes:**")
-    st.code("LeftTop: Content\nRightTop: Content\nLeftBottom: Content\nRightBottom: Content", language="text")
-    
-    st.markdown("### Style Tags")
-    st.markdown("""
-- `[vocabulary]` - Custom color (set in sidebar)
-- `[question]` - Custom color (set in sidebar)
-- `[answer]` - Custom color (set in sidebar)
-- `[emphasis]` - Custom color (set in sidebar)
-- `[step]` - Creates animation steps
-""")
+def get_ai_instructions():
+    """Return complete AI instruction file content for Universal Generator"""
+    return """================================================================================
+AI INSTRUCTIONS: Universal PowerPoint Generator Content Format
+================================================================================
+
+PURPOSE:
+You are creating lesson, training, or presentation content for the Universal PowerPoint Generator.
+This file explains the exact text format required for the generator to build slides.
+
+================================================================================
+CRITICAL RULES
+================================================================================
+1. Each slide starts with "Slide X" (X = any number)
+2. Each slide must have "Title: [text]"
+3. Use "Content:", "Left:", "Right:", etc. for layout
+4. Separate slides with "---"
+5. Lines beginning with "#" are comments (ignored)
+
+================================================================================
+CONTENT SECTIONS
+================================================================================
+Content:        Single-column content
+Left:           Left column in two-column layout
+Right:          Right column in two-column layout
+LeftTop:        Top-left box (4-box layout)
+RightTop:       Top-right box
+LeftBottom:     Bottom-left box
+RightBottom:    Bottom-right box
+Notes:          Speaker or teacher notes
+Template:       Optional predefined layout (vocabulary, reading, comparison)
+Image:          Insert image (Image: filename.jpg | width=5 | align=center)
+
+================================================================================
+STYLE TAGS
+================================================================================
+[vocabulary]    Highlight new or important terms
+[question]      Discussion or comprehension questions
+[answer]        Model answers or explanations
+[emphasis]      Important points or takeaways
+[step]          Sequential animation steps
+
+================================================================================
+EXAMPLES
+================================================================================
+Slide 1
+Title: Introducing the Topic
+Content: [emphasis] Lesson 1
+Content: Welcome to today's session!
+Content: [step] Objective 1
+Content: [step] Objective 2
+Notes: Brief intro and objectives overview.
+
+---
+Slide 2
+Title: Discussion
+Content: [question] What challenges have you faced?
+Content: [answer] Managing time effectively.
+Notes: 5-minute group discussion.
+
+---
+
+================================================================================
+LENGTH GUIDELINES
+================================================================================
+Title:             ≤ 60 characters
+Single Column:     ≤ 500 characters
+Two Columns:       ≤ 300 characters each
+Four Boxes:        ≤ 150 characters each
+Reading Passage:   800–1000 characters
+Questions:         3–5 max per slide
+
+================================================================================
+STRUCTURE TEMPLATE
+================================================================================
+Slide 1: Title + Objectives ([step] animations)
+Slide 2: Lead-in / Discussion
+Slide 3: Reading + Questions
+Slide 4: Vocabulary (Template: vocabulary)
+Slide 5: Explanation / Grammar / Concept
+Slide 6: Practice Activity
+Slide 7: Speaking / Production Task
+Slide 8: Recap & Reflection
+
+================================================================================
+NOTES
+================================================================================
+Each slide should include Notes: for timing, instructions, and feedback tips.
+
+================================================================================
+COMMON MISTAKES TO AVOID
+================================================================================
+❌ Missing "Slide X"
+❌ Missing "Title:"
+❌ Wrong section names (use Left:, Right:, etc.)
+❌ Too much text per box
+❌ Forgetting Notes:
+❌ Skipping [vocabulary]/[question]/[emphasis] tags
+
+================================================================================
+END OF INSTRUCTIONS
+================================================================================
+"""
 
 
 def show_help():
-    """Show help and documentation"""
+    """Show Help & Documentation for Universal Generator"""
     st.header("ℹ️ Help & Documentation")
-    
+
+    # --- AI Integration Section ---
+    st.markdown("### 🤖 Use AI to Create Lesson or Training Content")
+    st.info("💡 **Tip:** Download the AI instruction file and give it to ChatGPT, Claude, Gemini, or any AI model to auto-generate properly formatted content.")
+
+    st.download_button(
+        label="📥 Download AI Instruction File",
+        data=get_ai_instructions(),
+        file_name="AI_Instructions_Universal_Generator.txt",
+        mime="text/plain",
+        help="Give this to any AI to generate formatted content automatically."
+    )
+
+    st.markdown("### 📝 Sample AI Prompts")
+
+    with st.expander("🗣️ Conversation / Soft Skills Lesson"):
+        st.code("""I need to create a lesson using the Universal PowerPoint Generator format.
+
+[Attach or paste the AI_Instructions_Universal_Generator.txt file]
+
+Please create a lesson with these specs:
+- Topic: Making small talk in professional settings
+- Level: Intermediate (B1)
+- Duration: 60 minutes
+- Include: Vocabulary, short reading, discussion questions, practice tasks
+- 8–10 slides following the structure in the instructions.""", language="text")
+
+    with st.expander("💼 Business or Technical Training"):
+        st.code("""I need to create a business English training lesson using the Universal PowerPoint Generator format.
+
+[Attach or paste the AI_Instructions_Universal_Generator.txt file]
+
+Specs:
+- Topic: Presenting a technical solution
+- Audience: IT professionals
+- Duration: 60 minutes
+- Focus: Clear explanations, sequencing language, vocabulary
+- 8–10 slides, following the format.""", language="text")
+
+    with st.expander("📚 Academic or Skills-Based Lesson"):
+        st.code("""Please create an academic skills lesson using the Universal PowerPoint Generator format.
+
+[Attach or paste the AI_Instructions_Universal_Generator.txt file]
+
+Specs:
+- Topic: Writing clear topic sentences
+- Level: Upper Intermediate
+- Duration: 45 minutes
+- Focus: Structure, examples, analysis
+- 6–8 slides including objectives, examples, and exercises.""", language="text")
+
+    st.markdown("---")
+
+    # --- How-To Section ---
     st.markdown("### Getting Started")
     st.write("""
-    1. **Customize** your design in the sidebar (fonts, colors, background)
-    2. **Write or upload** your lesson content
-    3. **Validate** to check for errors
-    4. **Generate** to create your PowerPoint presentation
-    5. **Download** and use!
-    """)
-    
-    st.markdown("### Customization Options")
-    
-    with st.expander("🎨 Background"):
-        st.write("""
-        **Solid Color:** Choose any color for your background
-        
-        **Upload Image:** Upload your own background image
-        - Recommended size: 1920x1080 or 1280x720
-        - Formats: JPG, JPEG, PNG
-        """)
-    
-    with st.expander("🔤 Fonts & Colors"):
-        st.write("""
-        **Title:** Customize the font and color for slide titles
-        
-        **Body Text:** Customize the font and color for content
-        
-        Choose from popular fonts like Arial, Calibri, Times New Roman, etc.
-        """)
-    
-    with st.expander("🏷️ Style Tags"):
-        st.write("""
-        Customize the colors for special tags:
-        - `[vocabulary]` - For new terms
-        - `[question]` - For discussion questions
-        - `[answer]` - For model answers
-        - `[emphasis]` - For important points
-        """)
-    
+**Option 1: Use AI**
+1. Download the AI instruction file above  
+2. Give it to ChatGPT or another AI model with your topic and level  
+3. Copy the AI-generated text into this app  
+4. Validate and generate your PowerPoint  
+
+**Option 2: Write Manually**
+1. Use 'Slide X' and the section keywords (`Content:`, `Left:`, etc.)  
+2. Validate to check for structure issues  
+3. Generate and download your custom slides  
+""")
+
+    # --- Common Questions ---
     st.markdown("### Common Questions")
-    
-    with st.expander("❓ How do I create a slide?"):
-        st.write("""
-        Every slide must start with:
-        ```
-        Slide 1
-        Title: Your Title
-        ```
-        Then add content using Content:, Left:, Right:, etc.
-        """)
-    
-    with st.expander("❓ Can I save my customization?"):
-        st.write("""
-        Your customization is saved for the current session.
-        After generating, you can create multiple presentations with the same design.
-        To start fresh, click "Reset to Defaults" in the sidebar.
-        """)
-    
-    with st.expander("❓ What image formats are supported?"):
-        st.write("""
-        For background images: JPG, JPEG, PNG
-        
-        Recommended dimensions: 1920x1080 (16:9 aspect ratio)
-        """)
 
-
-if __name__ == "__main__":
-    main()
+    with st.expander("❓ How do I start a new slide?"):
+        st.write("""
+Each slide starts with:
