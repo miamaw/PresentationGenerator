@@ -1,4 +1,4 @@
-"""
+tion"""
 Universal PowerPoint Generator - Web App
 =========================================
 Fully customizable presentation generator for educators
@@ -1335,10 +1335,11 @@ def main():
         show_reference()
     
     with tab3:
-        show_help()
+        show_help_section()
 
 
 if __name__ == "__main__":
     main()
+
 
 
