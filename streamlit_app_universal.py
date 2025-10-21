@@ -662,11 +662,7 @@ def show_reference():
 """)
 
 
-"""
-Shared Help Section for PowerPoint Generator Web Apps
-======================================================
-Common functions for both MyES and Universal versions
-"""
+
 
 def get_ai_instructions():
     """Return complete AI instruction file content - SHARED ACROSS BOTH VERSIONS"""
@@ -1340,6 +1336,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
