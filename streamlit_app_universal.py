@@ -550,20 +550,24 @@ def show_help():
 
     # --- AI Integration Section ---
     st.markdown("### 🤖 Use AI to Create Lesson or Training Content")
-    st.info("💡 **Tip:** Download the AI instruction file and give it to ChatGPT, Claude, Gemini, or any AI model to auto-generate properly formatted content.")
+    st.info(
+        "💡 **Tip:** Download the AI instruction file and give it to ChatGPT, Claude, Gemini, or any AI model "
+        "to automatically generate properly formatted content."
+    )
 
     st.download_button(
         label="📥 Download AI Instruction File",
         data=get_ai_instructions(),
         file_name="AI_Instructions_Universal_Generator.txt",
         mime="text/plain",
-        help="Give this to any AI to generate formatted content automatically."
+        help="Give this file to any AI to generate formatted content automatically."
     )
 
     st.markdown("### 📝 Sample AI Prompts")
 
     with st.expander("🗣️ Conversation / Soft Skills Lesson"):
-        st.code("""I need to create a lesson using the Universal PowerPoint Generator format.
+        st.code(
+            """I need to create a lesson using the Universal PowerPoint Generator format.
 
 [Attach or paste the AI_Instructions_Universal_Generator.txt file]
 
@@ -572,10 +576,13 @@ Please create a lesson with these specs:
 - Level: Intermediate (B1)
 - Duration: 60 minutes
 - Include: Vocabulary, short reading, discussion questions, practice tasks
-- 8–10 slides following the structure in the instructions.""", language="text")
+- 8–10 slides following the structure in the instructions.""",
+            language="text",
+        )
 
     with st.expander("💼 Business or Technical Training"):
-        st.code("""I need to create a business English training lesson using the Universal PowerPoint Generator format.
+        st.code(
+            """I need to create a business or technical training lesson using the Universal PowerPoint Generator format.
 
 [Attach or paste the AI_Instructions_Universal_Generator.txt file]
 
@@ -583,11 +590,14 @@ Specs:
 - Topic: Presenting a technical solution
 - Audience: IT professionals
 - Duration: 60 minutes
-- Focus: Clear explanations, sequencing language, vocabulary
-- 8–10 slides, following the format.""", language="text")
+- Focus: Clear explanations, sequencing language, and vocabulary
+- 8–10 slides following the specified structure.""",
+            language="text",
+        )
 
     with st.expander("📚 Academic or Skills-Based Lesson"):
-        st.code("""Please create an academic skills lesson using the Universal PowerPoint Generator format.
+        st.code(
+            """Please create an academic skills lesson using the Universal PowerPoint Generator format.
 
 [Attach or paste the AI_Instructions_Universal_Generator.txt file]
 
@@ -595,214 +605,79 @@ Specs:
 - Topic: Writing clear topic sentences
 - Level: Upper Intermediate
 - Duration: 45 minutes
-- Focus: Structure, examples, analysis
-- 6–8 slides including objectives, examples, and exercises.""", language="text")
+- Focus: Structure, examples, and analysis
+- 6–8 slides including objectives, examples, and exercises.""",
+            language="text",
+        )
 
     st.markdown("---")
 
     # --- How-To Section ---
     st.markdown("### Getting Started")
-    st.write("""
-**Option 1: Use AI**
-1. Download the AI instruction file above  
-2. Give it to ChatGPT or another AI model with your topic and level  
-3. Copy the AI-generated text into this app  
-4. Validate and generate your PowerPoint  
-
-**Option 2: Write Manually**
-1. Use 'Slide X' and the section keywords (`Content:`, `Left:`, etc.)  
-2. Validate to check for structure issues  
-3. Generate and download your custom slides  
-""")
+    st.write(
+        "**Option 1: Use AI**\n"
+        "1. Download the AI instruction file above  \n"
+        "2. Give it to ChatGPT or another AI model with your topic and level  \n"
+        "3. Copy the AI-generated text into this app  \n"
+        "4. Validate and generate your PowerPoint  \n\n"
+        "**Option 2: Write Manually**\n"
+        "1. Use 'Slide X' and the section keywords (`Content:`, `Left:`, etc.)  \n"
+        "2. Validate to check for structure issues  \n"
+        "3. Generate and download your custom slides  "
+    )
 
     # --- Common Questions ---
     st.markdown("### Common Questions")
 
     with st.expander("❓ How do I start a new slide?"):
-        st.write("""
-Each slide starts with:
-Slide 1
+        st.code(
+            """Slide 1
 Title: Your title here
-
-pgsql
-Copy code
-Add your content below and separate slides with `---`.
-""")
+Content: First point
+---
+(add more slides separated by ---)""",
+            language="text",
+        )
 
     with st.expander("❓ How do I add animations?"):
-        st.write("""
-Use `[step]` before each animated line:
-Content: [step] First point
+        st.code(
+            """Content: [step] First point
 Content: [step] Second point
-
-python
-Copy code
-Each step becomes a separate shape for simple animations.
-""")
+Content: [step] Third point""",
+            language="text",
+        )
+        st.write("Each `[step]` line becomes a separate text object for easy animations.")
 
     with st.expander("❓ What if my text is long?"):
-        st.write("""
-The generator auto-adjusts font size:
-- 300+ characters → 18pt  
-- 500+ → 16pt  
-- 700+ → 14pt  
-Overflow warnings appear during validation.
-""")
+        st.write(
+            "The generator automatically reduces font size for long text:\n"
+            "- 300+ characters → 18pt  \n"
+            "- 500+ characters → 16pt  \n"
+            "- 700+ characters → 14pt  \n\n"
+            "You’ll also see overflow warnings during validation."
+        )
 
     with st.expander("❓ Can I include images?"):
-        st.write("""
-Yes. Add them like this:
-Image: chart.png | width=5 | align=center
-
-rust
-Copy code
-Supported: JPG, PNG. Upload them to the same folder before generating.
-""")
+        st.code(
+            """Image: chart.png | width=5 | align=center""",
+            language="text",
+        )
+        st.write(
+            "Supported formats: **JPG** and **PNG**. "
+            "Upload the image to the same folder as your content before generating."
+        )
 
     st.markdown("### Example Lesson Structure")
-    st.code("""
-Slide 1 – Title & Objectives ([step] animations)
+    st.code(
+        """Slide 1 – Title & Objectives ([step] animations)
 Slide 2 – Discussion ([question] tags)
 Slide 3 – Reading & Questions (LeftTop / LeftBottom)
 Slide 4 – Vocabulary (Template: vocabulary)
 Slide 5 – Concept Explanation (4-box layout)
 Slide 6 – Practice Activity
 Slide 7 – Speaking or Reflection
-Slide 8 – Recap & Homework
-""", language="text")
+Slide 8 – Recap & Homework""",
+        language="text",
+    )
 
-
-def show_reference():
-    """Show quick reference guide for the Universal Generator"""
-    st.header("📖 Quick Reference Guide")
-
-    st.markdown("### Basic Syntax")
-    st.code("""
-Slide 1
-Title: Your Slide Title
-Content: Your content here
-Content: [step] Animated point
-Notes: Speaker or teacher notes
----
-    """, language="text")
-
-    st.markdown("### Layout Types")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("**Single Column:**")
-        st.code("""
-Content: Main point
-Content: Another point
-        """, language="text")
-
-        st.markdown("**Two Columns:**")
-        st.code("""
-Left: Left content
-Right: Right content
-        """, language="text")
-
-    with col2:
-        st.markdown("**Four Boxes (Grid Layout):**")
-        st.code("""
-LeftTop: Concept 1
-RightTop: Concept 2
-LeftBottom: Concept 3
-RightBottom: Concept 4
-        """, language="text")
-
-        st.markdown("**Reading or Case Study Layout:**")
-        st.code("""
-LeftTop: Reading passage text...
-LeftBottom: 1. Question one?
-LeftBottom: 2. Question two?
-        """, language="text")
-
-    st.markdown("---")
-
-    st.markdown("### Style Tags")
-
-    tags = {
-        "[vocabulary]": "Highlights new or important terms",
-        "[question]": "Marks discussion or comprehension questions",
-        "[answer]": "Shows model answers or examples",
-        "[emphasis]": "Draws attention to key ideas or important phrases",
-        "[step]": "Creates animation steps (reveals content sequentially)"
-    }
-
-    for tag, desc in tags.items():
-        st.markdown(f"**{tag}** — {desc}")
-
-    st.markdown("---")
-
-    st.markdown("### Example Layouts")
-
-    st.markdown("**Single Column Example:**")
-    st.code("""
-Slide 1
-Title: Course Introduction
-Content: [emphasis] Welcome to the session
-Content: [step] Today we will cover objectives and key outcomes.
-Notes: Start with introductions and expectations.
----
-    """, language="text")
-
-    st.markdown("**Two-Column Example (Vocabulary / Comparison):**")
-    st.code("""
-Slide 2
-Title: Key Terms
-Left: [vocabulary] efficiency
-Right: Ability to achieve results with minimal waste
-Left: [vocabulary] reliability
-Right: Consistent performance under different conditions
-Notes: Ask participants to provide examples.
----
-    """, language="text")
-
-    st.markdown("**Reading Example:**")
-    st.code("""
-Slide 3
-Title: Case Study – Sustainable Solutions
-LeftTop: The company implemented a new system reducing energy use by 40%...
-LeftBottom: 1. What problem did the company face?
-LeftBottom: 2. What solution did they choose?
-LeftBottom: 3. What were the results?
-Notes: Allow 5 minutes for reading and pair discussion.
----
-    """, language="text")
-
-    st.markdown("---")
-
-    st.markdown("### Special Features")
-    st.code("""
-# Comments (ignored by generator)
-Image: chart.png | width=5 | align=center
-Template: vocabulary
-Math: x^2, H_2O, >=, pi
-    """, language="text")
-
-    st.markdown("### Best Practices")
-    st.write("""
-- ✅ Keep slide titles short (under ~60 characters)  
-- ✅ Use `[step]` for 3–5 sequential points per slide  
-- ✅ Include **Notes:** for timing, instructions, or questions  
-- ✅ Split long content into multiple slides  
-- ✅ Validate before generating  
-- ❌ Don’t mix layouts on one slide (e.g., LeftTop with Right only)
-""")
-
-    st.markdown("---")
-
-    st.markdown("### Example Lesson Flow")
-    st.code("""
-Slide 1 – Title & Objectives ([step] animations)
-Slide 2 – Lead-in Discussion ([question] tags)
-Slide 3 – Reading or Case Study (LeftTop / LeftBottom)
-Slide 4 – Vocabulary (Template: vocabulary)
-Slide 5 – Grammar, Process, or Explanation (4-box layout)
-Slide 6 – Practice Task ([emphasis] + [step])
-Slide 7 – Speaking or Reflection
-Slide 8 – Recap & Homework
-    """, language="text")
 
