@@ -8,6 +8,7 @@ With integrated live preview and comprehensive help
 import streamlit as st
 import os
 import io
+import base64
 import re
 from pathlib import Path
 
@@ -207,8 +208,6 @@ def parse_slides_for_preview(content):
 
 
 
-
-
 def show_slide_preview(slide, slide_num, config):
     """Display a single slide preview with actual styling"""
     
@@ -236,10 +235,21 @@ def show_slide_preview(slide, slide_num, config):
         len(slide['rightbottom']) > 0
     ])
     
-    # Background styling
+    # Background styling with base64 encoding for images
     bg_style = f"background-color: {bg_hex};"
     if config.get("background_image") and os.path.exists(config["background_image"]):
-        bg_style = f"background-image: url('{config['background_image']}'); background-size: cover; background-position: center;"
+        try:
+            with open(config["background_image"], "rb") as img_file:
+                img_data = base64.b64encode(img_file.read()).decode()
+                # Determine image type
+                img_ext = config["background_image"].lower().split('.')[-1]
+                mime_type = f"image/{img_ext if img_ext in ['png', 'jpg', 'jpeg'] else 'jpeg'}"
+                if img_ext == 'jpg':
+                    mime_type = 'image/jpeg'
+                bg_style = f"background-image: url('data:{mime_type};base64,{img_data}'); background-size: cover; background-position: center;"
+        except Exception as e:
+            # Fallback to solid color if image can't be loaded
+            bg_style = f"background-color: {bg_hex};"
     
     # Content styling helper
     def get_styled_text(text, config):
@@ -1336,6 +1346,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
