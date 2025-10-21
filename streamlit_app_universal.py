@@ -333,79 +333,197 @@ AI INSTRUCTIONS: Universal PowerPoint Generator Format
 """
 
 def show_help():
-    """Help & Documentation"""
+    """Show Help & Documentation for the Universal PowerPoint Generator"""
     st.header("ℹ️ Help & Documentation")
 
+    # --- AI Integration Section ---
     st.markdown("### 🤖 Use AI to Create Lesson or Training Content")
-    st.info("💡 Download the AI instruction file and give it to ChatGPT, Claude, Gemini, etc.")
-    st.download_button(
-        "📥 Download AI Instruction File",
-        get_ai_instructions(),
-        file_name="AI_Instructions_Universal_Generator.txt",
-        mime="text/plain"
+    st.info(
+        "💡 **Tip:** Let AI do the work! Download the instruction file, give it to any AI "
+        "(ChatGPT, Claude, Gemini, etc.) with your lesson requirements, "
+        "and it will generate properly formatted content."
     )
 
-    st.markdown("### Example Lesson Structure")
-    st.code("""
-Slide 1 – Title & Objectives ([step] animations)
-Slide 2 – Discussion ([question] tags)
-Slide 3 – Reading & Questions (LeftTop / LeftBottom)
-Slide 4 – Vocabulary (Template: vocabulary)
-Slide 5 – Concept or Process (4-box layout)
-Slide 6 – Practice Activity
-Slide 7 – Speaking or Reflection
-Slide 8 – Recap & Homework
-""", language="text")
+    st.download_button(
+        label="📥 Download AI Instruction File",
+        data=get_ai_instructions(),
+        file_name="AI_Instructions_Universal_Generator.txt",
+        mime="text/plain",
+        help="Download this file to give to AI (ChatGPT, Claude, etc.)"
+    )
+
+    # --- Sample AI Prompts ---
+    st.markdown("### 📝 Sample AI Prompts")
+
+    with st.expander("🗣️ Conversation Practice Lesson"):
+        st.code("""I need to create a lesson using the Universal PowerPoint Generator format.
+
+[Attach or paste the AI_Instructions_Universal_Generator.txt file]
+
+Please create a lesson with these specifications:
+- Topic: Conversation practice - Making small talk at networking events
+- Level: B1 (Intermediate)
+- Duration: 60 minutes
+- Focus: Ice breakers, follow-up questions, showing interest
+- Include: Vocabulary, example dialogues, practice activities
+- 8–10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
+
+    with st.expander("💼 Business English Lesson"):
+        st.code("""I need to create a lesson using the Universal PowerPoint Generator format.
+
+[Attach or paste the AI_Instructions_Universal_Generator.txt file]
+
+Please create a lesson with these specifications:
+- Topic: Writing professional emails - Making requests
+- Level: B2 (Upper Intermediate)
+- Duration: 60 minutes
+- Focus: Formal language, polite requests, appropriate tone
+- Include: Email structure, key phrases, and a writing practice activity
+- 8–10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
+
+    with st.expander("🔬 Technical / Specialist Language"):
+        st.code("""I need to create a lesson using the Universal PowerPoint Generator format.
+
+[Attach or paste the AI_Instructions_Universal_Generator.txt file]
+
+Please create a lesson with these specifications:
+- Topic: IT Architecture - Describing cloud infrastructure
+- Level: B2–C1 (Business English for Technical Professionals)
+- Duration: 60 minutes
+- Focus: Technical vocabulary, explaining systems, comparing solutions
+- Include: Case study, technical terms, practice describing projects
+- 8–10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
+
+    with st.expander("📰 News Article Lesson"):
+        st.code("""I need to create a lesson using the Universal PowerPoint Generator format.
+
+[Attach or paste the AI_Instructions_Universal_Generator.txt file]
+
+Please create a lesson based on this news article:
+[Paste the article text or URL]
+
+Specifications:
+- Level: B1 (Intermediate)
+- Duration: 60 minutes
+- Include: Simplified reading passage (200 words), comprehension questions, vocabulary, discussion
+- 8–10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
+
+    with st.expander("📚 Grammar Focus Lesson"):
+        st.code("""I need to create a lesson using the Universal PowerPoint Generator format.
+
+[Attach or paste the AI_Instructions_Universal_Generator.txt file]
+
+Please create a lesson with these specifications:
+- Topic: Past Simple vs Present Perfect
+- Level: B1 (Intermediate)
+- Duration: 60 minutes
+- Focus: Form, usage differences, time expressions, practice
+- Include: Rule explanation, examples, controlled practice, freer practice
+- 8–10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
 
     st.markdown("---")
-    st.markdown("### Common Questions")
-    st.write("""
-**How do I start a slide?**
-Slide 1
-Title: My Slide Title
-Content: Main point
-arduino
-Copy code
 
-**How do I add animations?**
-Use `[step]` for sequential points:
-Content: [step] First point
-Content: [step] Second point
+    # --- Getting Started ---
+    st.markdown("### Getting Started")
+
+    st.write("""
+**Option 1: Use AI to Generate Content**
+1. **Download** the AI instruction file above  
+2. **Give it to AI** (ChatGPT, Claude, Gemini, etc.) with your lesson specifications  
+3. **Copy** the generated content  
+4. **Paste** into the editor or upload as `.txt` file  
+5. **Validate** and **Generate**
+
+**Option 2: Write Content Manually**
+1. **Write or upload** your lesson content using the Universal generator syntax  
+2. **Validate** to check for errors  
+3. **Generate** to create your PowerPoint presentation  
+4. **Download** and use it in your session!
+""")
+
+    # --- Common Questions ---
+    st.markdown("### Common Questions")
+
+    with st.expander("❓ How do I create a slide?"):
+        st.write("""
+Every slide must start with:
+Slide 1
+Title: Your Title
 
 csharp
 Copy code
-
-**How do I add images?**
-Image: chart.png | width=5 | align=center
+Then add content using:
+Content: ...
+Left: ...
+Right: ...
+Notes: ...
 
 python
 Copy code
+Separate slides with `---`
 """)
 
-def show_reference():
-    """Quick Reference Guide"""
-    st.header("📖 Quick Reference")
+    with st.expander("❓ What if my text is too long?"):
+        st.write("""
+The generator automatically reduces font size for long text:
 
-    st.markdown("### Layout Types")
+- 300+ characters → 18pt  
+- 500+ characters → 16pt  
+- 700+ characters → 14pt  
+
+You'll see overflow warnings during validation.
+""")
+
+    with st.expander("❓ How do I add animations?"):
+        st.write("""
+Use `[step]` before each line you want to animate:
+Content: [step] First point
+Content: [step] Second point
+Content: [step] Third point
+
+python
+Copy code
+Each `[step]` creates a separate element for easy animation.
+""")
+
+    with st.expander("❓ Can I use images?"):
+        st.write("""
+Yes! Upload images to the same folder and reference them like this:
+Image: diagram.png | width=5 | align=center
+
+pgsql
+Copy code
+Supported parameters: `width`, `left`, `top`, `align`.
+You can also add or replace images later in PowerPoint or Google Slides (including stock images).
+""")
+
+    with st.expander("❓ Where is my background template?"):
+        st.write("""
+If you are using a custom background image, ensure that it is uploaded in the same directory as this app. 
+Alternatively, you can select a solid color or upload your own background in the sidebar.
+""")
+
+    st.markdown("### Example Lesson Structure")
     st.code("""
-Content: Standard layout
-Left: For two-column slides
-Right: For two-column slides
-LeftTop / RightTop / LeftBottom / RightBottom: For 4-box layouts
-Notes: For presenter notes
+Slide 1 - Title & Objectives (with [step] animations)
+Slide 2 - Lead-in Discussion (with [question] tags)
+Slide 3 - Reading Passage + Questions (LeftTop / LeftBottom)
+Slide 4 - Vocabulary (Template: vocabulary)
+Slide 5 - Grammar or Concept Explanation (4-box layout)
+Slide 6 - Practice Activity
+Slide 7 - Speaking or Reflection
+Slide 8 - Recap & Homework
 """, language="text")
 
-    st.markdown("### Style Tags")
-    st.code("""
-[vocabulary] - Highlights key terms
-[question]   - Marks discussion prompts
-[answer]     - Shows model responses
-[emphasis]   - Emphasizes key ideas
-[step]       - Adds animation steps
-""", language="text")
-
-# ---------------------------------------------------------------------------
-# Run
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    main()
+    st.markdown("---")
+    st.markdown("💡 **Note:** You can further refine your presentation after export — add animations, transitions, and stock images directly inside PowerPoint or Google Slides.")
