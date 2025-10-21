@@ -621,3 +621,188 @@ Specs:
     with st.expander("❓ How do I start a new slide?"):
         st.write("""
 Each slide starts with:
+Slide 1
+Title: Your title here
+
+pgsql
+Copy code
+Add your content below and separate slides with `---`.
+""")
+
+    with st.expander("❓ How do I add animations?"):
+        st.write("""
+Use `[step]` before each animated line:
+Content: [step] First point
+Content: [step] Second point
+
+python
+Copy code
+Each step becomes a separate shape for simple animations.
+""")
+
+    with st.expander("❓ What if my text is long?"):
+        st.write("""
+The generator auto-adjusts font size:
+- 300+ characters → 18pt  
+- 500+ → 16pt  
+- 700+ → 14pt  
+Overflow warnings appear during validation.
+""")
+
+    with st.expander("❓ Can I include images?"):
+        st.write("""
+Yes. Add them like this:
+Image: chart.png | width=5 | align=center
+
+rust
+Copy code
+Supported: JPG, PNG. Upload them to the same folder before generating.
+""")
+
+    st.markdown("### Example Lesson Structure")
+    st.code("""
+Slide 1 – Title & Objectives ([step] animations)
+Slide 2 – Discussion ([question] tags)
+Slide 3 – Reading & Questions (LeftTop / LeftBottom)
+Slide 4 – Vocabulary (Template: vocabulary)
+Slide 5 – Concept Explanation (4-box layout)
+Slide 6 – Practice Activity
+Slide 7 – Speaking or Reflection
+Slide 8 – Recap & Homework
+""", language="text")
+
+
+def show_reference():
+    """Show quick reference guide for the Universal Generator"""
+    st.header("📖 Quick Reference Guide")
+
+    st.markdown("### Basic Syntax")
+    st.code("""
+Slide 1
+Title: Your Slide Title
+Content: Your content here
+Content: [step] Animated point
+Notes: Speaker or teacher notes
+---
+    """, language="text")
+
+    st.markdown("### Layout Types")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("**Single Column:**")
+        st.code("""
+Content: Main point
+Content: Another point
+        """, language="text")
+
+        st.markdown("**Two Columns:**")
+        st.code("""
+Left: Left content
+Right: Right content
+        """, language="text")
+
+    with col2:
+        st.markdown("**Four Boxes (Grid Layout):**")
+        st.code("""
+LeftTop: Concept 1
+RightTop: Concept 2
+LeftBottom: Concept 3
+RightBottom: Concept 4
+        """, language="text")
+
+        st.markdown("**Reading or Case Study Layout:**")
+        st.code("""
+LeftTop: Reading passage text...
+LeftBottom: 1. Question one?
+LeftBottom: 2. Question two?
+        """, language="text")
+
+    st.markdown("---")
+
+    st.markdown("### Style Tags")
+
+    tags = {
+        "[vocabulary]": "Highlights new or important terms",
+        "[question]": "Marks discussion or comprehension questions",
+        "[answer]": "Shows model answers or examples",
+        "[emphasis]": "Draws attention to key ideas or important phrases",
+        "[step]": "Creates animation steps (reveals content sequentially)"
+    }
+
+    for tag, desc in tags.items():
+        st.markdown(f"**{tag}** — {desc}")
+
+    st.markdown("---")
+
+    st.markdown("### Example Layouts")
+
+    st.markdown("**Single Column Example:**")
+    st.code("""
+Slide 1
+Title: Course Introduction
+Content: [emphasis] Welcome to the session
+Content: [step] Today we will cover objectives and key outcomes.
+Notes: Start with introductions and expectations.
+---
+    """, language="text")
+
+    st.markdown("**Two-Column Example (Vocabulary / Comparison):**")
+    st.code("""
+Slide 2
+Title: Key Terms
+Left: [vocabulary] efficiency
+Right: Ability to achieve results with minimal waste
+Left: [vocabulary] reliability
+Right: Consistent performance under different conditions
+Notes: Ask participants to provide examples.
+---
+    """, language="text")
+
+    st.markdown("**Reading Example:**")
+    st.code("""
+Slide 3
+Title: Case Study – Sustainable Solutions
+LeftTop: The company implemented a new system reducing energy use by 40%...
+LeftBottom: 1. What problem did the company face?
+LeftBottom: 2. What solution did they choose?
+LeftBottom: 3. What were the results?
+Notes: Allow 5 minutes for reading and pair discussion.
+---
+    """, language="text")
+
+    st.markdown("---")
+
+    st.markdown("### Special Features")
+    st.code("""
+# Comments (ignored by generator)
+Image: chart.png | width=5 | align=center
+Template: vocabulary
+Math: x^2, H_2O, >=, pi
+    """, language="text")
+
+    st.markdown("### Best Practices")
+    st.write("""
+- ✅ Keep slide titles short (under ~60 characters)  
+- ✅ Use `[step]` for 3–5 sequential points per slide  
+- ✅ Include **Notes:** for timing, instructions, or questions  
+- ✅ Split long content into multiple slides  
+- ✅ Validate before generating  
+- ❌ Don’t mix layouts on one slide (e.g., LeftTop with Right only)
+""")
+
+    st.markdown("---")
+
+    st.markdown("### Example Lesson Flow")
+    st.code("""
+Slide 1 – Title & Objectives ([step] animations)
+Slide 2 – Lead-in Discussion ([question] tags)
+Slide 3 – Reading or Case Study (LeftTop / LeftBottom)
+Slide 4 – Vocabulary (Template: vocabulary)
+Slide 5 – Grammar, Process, or Explanation (4-box layout)
+Slide 6 – Practice Task ([emphasis] + [step])
+Slide 7 – Speaking or Reflection
+Slide 8 – Recap & Homework
+    """, language="text")
+
