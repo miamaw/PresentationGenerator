@@ -2,6 +2,7 @@
 Universal PowerPoint Generator - Web App
 =========================================
 Fully customizable presentation generator for educators
+With integrated live preview and comprehensive help
 """
 
 import streamlit as st
@@ -20,6 +21,25 @@ try:
 except ImportError:
     GENERATOR_AVAILABLE = False
     st.error("⚠️ Generator module not found.")
+    # Fallback DEFAULT_CONFIG
+    DEFAULT_CONFIG = {
+        "background_image": None,
+        "background_color": [255, 255, 255],
+        "title_color": [0, 0, 0],
+        "text_color": [64, 64, 64],
+        "font_name": "Arial",
+        "title_font_name": "Arial",
+        "slide_width": 13.33,
+        "slide_height": 7.5,
+        "enable_slide_numbers": True,
+        "enable_overflow_warnings": True,
+        "styles": {
+            "vocabulary": {"font_size": 24, "color": [0, 128, 0], "bold": True},
+            "question": {"font_size": 20, "color": [128, 0, 128], "bold": False},
+            "answer": {"font_size": 18, "color": [128, 128, 128], "italic": True},
+            "emphasis": {"font_size": 22, "color": [192, 0, 0], "bold": True}
+        }
+    }
 
 # Page configuration
 st.set_page_config(
@@ -600,35 +620,27 @@ def show_reference():
 
 
 # ============================================================================
-# HELP SECTION (CONTINUED IN NEXT PART DUE TO LENGTH)
+# HELP SECTION
 # ============================================================================
 
 def get_ai_instructions():
     """Return complete AI instruction file content"""
-    return """
-================================================================================
+    return """================================================================================
 AI INSTRUCTIONS: PowerPoint Generator Content Format
 ================================================================================
 
 PURPOSE: You are creating lesson content for the PowerPoint Generator.
 This file explains the EXACT format required for the content to work properly.
 
-================================================================================
-CRITICAL FORMATTING RULES
-================================================================================
-
+CRITICAL FORMATTING RULES:
 1. EVERY slide must start with "Slide X" (where X is any number)
 2. EVERY slide must have "Title: [text]"
 3. Content is organized in sections: Content:, Left:, Right:, etc.
 4. Use "---" to separate slides (optional but recommended)
-5. Multiple lines under the same section are allowed
-6. Lines starting with "#" are comments (ignored)
+5. Lines starting with "#" are comments (ignored)
 
-================================================================================
-CONTENT SECTIONS
-================================================================================
-
-Content:        Single column content (default layout)
+CONTENT SECTIONS:
+Content:        Single column content
 Left:           Left column in two-column layout
 Right:          Right column in two-column layout
 LeftTop:        Top-left box in four-box layout
@@ -636,143 +648,22 @@ RightTop:       Top-right box in four-box layout
 LeftBottom:     Bottom-left box in four-box layout
 RightBottom:    Bottom-right box in four-box layout
 Notes:          Teacher notes (not visible on slides)
-Template:       Apply predefined template (vocabulary, reading, comparison)
 
-================================================================================
-LAYOUT SELECTION LOGIC
-================================================================================
+STYLE TAGS:
+[vocabulary]    Bold text - for NEW vocabulary terms
+[question]      Styled text - for discussion questions
+[answer]        Italic text - for model answers
+[emphasis]      Bold text - for key takeaways
+[step]          Creates animations - for sequential reveals
 
-USE Content: FOR:
-- Simple slides with one main message
-- Title slides with objectives
-- Instructions
-- Single-topic explanations
+CONTENT LENGTH GUIDELINES:
+- Slide Titles: Max 60 characters
+- Single Column: Up to 500 characters per slide
+- Two Columns: Up to 300 characters per column
+- Four Boxes: Up to 150 characters per box
+- Reading Passages: 800-1000 characters
 
-USE Left: and Right: FOR:
-- Vocabulary (word | definition)
-- Comparisons (before | after)
-- Advantages vs Disadvantages
-- Theory vs Practice
-
-USE LeftTop:, RightTop:, LeftBottom:, RightBottom: FOR:
-- Four related concepts (4 project phases, 4 skills)
-- Grammar explanations with examples and practice
-- Pros/cons with solutions/alternatives
-
-USE LeftTop: (passage) and LeftBottom: (questions) FOR:
-- Reading comprehension
-- Case studies with questions
-- Longer texts with follow-up questions
-
-================================================================================
-STYLE TAGS - USE THESE FOR FORMATTING
-================================================================================
-
-[vocabulary]    Bold text - Use for NEW vocabulary terms
-[question]      Styled text - Use for discussion questions
-[answer]        Italic text - Use for model answers
-[emphasis]      Bold text - Use for key takeaways
-[step]          Creates animations - Use for sequential reveals
-
-EXAMPLES:
-Content: [vocabulary] resilience - the ability to recover from failures
-Content: [question] What challenges do you face in your role?
-Content: [answer] Common challenges include time management and priorities
-Content: [emphasis] Remember: Always validate before submitting!
-Content: [step] First, identify the problem
-Content: [step] Then, analyze possible solutions
-Content: [step] Finally, implement and monitor
-
-NOTE: Colors are customizable in the web app settings.
-
-================================================================================
-CONTENT LENGTH GUIDELINES
-================================================================================
-
-Slide Titles:       Max 60 characters
-Single Column:      Up to 500 characters per slide
-Two Columns:        Up to 300 characters per column
-Four Boxes:         Up to 150 characters per box
-Reading Passages:   800-1000 characters (150-250 words)
-Questions:          3-5 questions per slide maximum
-Vocabulary Items:   4-6 terms per slide
-
-IMPORTANT: Long text automatically reduces font size, but there are limits!
-
-================================================================================
-ANIMATIONS & IMAGES - HANDLE IN POWERPOINT
-================================================================================
-
-DO NOT INCLUDE IMAGE REFERENCES OR COMPLEX ANIMATIONS IN YOUR CONTENT FILE.
-
-Instead:
-✓ Generate clean text-based slides
-✓ Add images later in PowerPoint using Insert > Pictures
-✓ Recommended: Use stock photo sites like Unsplash, Pexels, Pixabay
-✓ Add animations in PowerPoint using the Animations tab
-✓ Use [step] tag only for basic text reveals (handled automatically)
-
-Why this approach is better:
-- Easier to find and place images in PowerPoint
-- More control over image sizing and positioning
-- Access to PowerPoint's full animation suite
-- Can use built-in stock images (Insert > Stock Images)
-- Easier to update and modify later
-
-================================================================================
-LESSON STRUCTURE TEMPLATE
-================================================================================
-
-A well-structured lesson should follow this pattern:
-
-Slide 1: Title + Objectives
-- Use [emphasis] for lesson number/name
-- Use [step] for each learning objective (3-4 max)
-- Add Notes: with timing and warm-up question
-
-Slide 2: Lead-in / Discussion
-- Use [question] for discussion prompts
-- Add bullet points with "Think about:"
-- Add Notes: with interaction instructions
-
-Slide 3: Reading / Case Study
-- Use LeftTop: for passage (150-250 words)
-- Use LeftBottom: for comprehension questions (3-4)
-- Add Notes: with reading strategy
-
-Slide 4: Vocabulary
-- Option A: Use Template: vocabulary
-- Option B: Use Left: (term) and Right: (definition)
-- Use [vocabulary] tag on terms
-- Add Notes: with pronunciation tips
-
-Slide 5: Grammar / Language Focus
-- Use four-box layout for rules, examples, practice, notes
-- LeftTop: [emphasis] Rule/Form with explanation
-- RightTop: [emphasis] Practice with exercises
-- LeftBottom: [emphasis] Common Errors
-- RightBottom: [emphasis] Usage Notes
-
-Slide 6: Practice Activity
-- Use Content: with [emphasis] for task title
-- Use [step] for sequential instructions
-- Add Notes: with timing and monitoring tips
-
-Slide 7: Speaking / Production
-- Use [question] for prompts
-- Provide structure/scaffolding
-- Add Notes: with grouping suggestions
-
-Slide 8: Recap + Reflection
-- Use [emphasis] for "Today we covered:"
-- Use checkmarks (✓) for completed items
-- Use [question] for reflection questions
-- Add Notes: with homework assignment
-
-================================================================================
-EXAMPLE COMPLETE SLIDE
-================================================================================
-
+EXAMPLE SLIDE:
 Slide 1
 Title: Professional Email Writing
 Content: [emphasis] Lesson 1
@@ -781,110 +672,15 @@ Content:
 Content: Today's Focus:
 Content: [step] Email structure and conventions
 Content: [step] Professional language and tone
-Content: [step] Common business phrases
-Notes: Warm-up about email challenges. 5 minutes. Add company logo image in PowerPoint.
-
+Notes: Warm-up about email challenges. 5 minutes.
 ---
 
-Slide 2
-Title: Lead-in Discussion
-Content: [question] How many emails do you write per week?
-Content: [question] What makes a professional email effective?
-Content: 
-Content: Think about:
-Content: • Clarity and conciseness
-Content: • Appropriate tone
-Content: • Professional formatting
-Notes: Pair discussion 3 minutes. Elicit responses. Add relevant stock photo in PowerPoint.
-
----
-
-================================================================================
-TEACHER NOTES - ALWAYS INCLUDE
-================================================================================
-
-Every slide should have Notes: with:
-- Timing estimate (e.g., "5 minutes")
-- Interaction type (pair work, whole class, individual)
-- Key instructions for teacher
-- Common errors to watch for
-- Extension activities if time permits
-- Suggestions for images to add later (optional)
-
-EXAMPLE:
-Notes: Elicit answers first. Drill pronunciation. CCQ: "Can something resilient break easily?" (No). Give 2 min for pair discussion. Monitor for past tense errors. 8-10 minutes total. Suggestion: Add icon/image of person overcoming obstacle.
-
-================================================================================
-COMMON MISTAKES TO AVOID
-================================================================================
-
-❌ Forgetting "Slide X" at the start
-❌ Missing "Title:" on any slide
-❌ Using wrong section names (e.g., "LeftSide:" instead of "Left:")
-❌ Too much text in four-box layouts (>150 chars per box)
-❌ Not using style tags ([vocabulary], [question], etc.)
-❌ Forgetting teacher notes
-❌ Mixing layouts incorrectly
-❌ Including image file references (handle in PowerPoint instead)
-❌ Trying to specify complex animations (use PowerPoint instead)
-
-================================================================================
-CONTENT GENERATION CHECKLIST
-================================================================================
-
-Before submitting content, verify:
-□ Every slide starts with "Slide X"
-□ Every slide has "Title: [text]"
-□ Appropriate layout chosen for content type
-□ [vocabulary] tags used for new terms
-□ [question] tags used for discussion prompts
-□ [emphasis] tags used for key points
-□ [step] tags used for sequential content (basic reveals only)
-□ Teacher notes included on every slide
-□ Content length appropriate (not too long)
-□ Slides separated with "---"
-□ 8-10 slides total per lesson
-□ NO image references (add those in PowerPoint later)
-□ NO complex animation specs (handle in PowerPoint)
-
-================================================================================
-LEVEL-SPECIFIC GUIDELINES
-================================================================================
-
-A1-A2 (Beginner):
-- Simple vocabulary and short sentences
-- Note in teacher notes: "Add supportive images in PowerPoint"
-- 6-8 slides per lesson
-
-B1-B2 (Intermediate):
-- Moderate complexity vocabulary
-- Longer reading passages (150-200 words)
-- 8-10 slides per lesson
-
-C1-C2 (Advanced):
-- Advanced vocabulary and idioms
-- Complex texts (200-250 words)
-- 10-12 slides per lesson
-
-================================================================================
-OUTPUT FORMAT
-================================================================================
-
-Your output should be plain text starting with:
-
-# Lesson Name
-# Level: XX | Duration: XX minutes
-
-Then proceed with slides as shown in examples above.
-
-================================================================================
-END OF INSTRUCTIONS
-================================================================================
+IMPORTANT: Generate clean text-based slides. Add images later in PowerPoint.
 """
 
 
 def show_help():
-    
+    """Show help and documentation"""
     st.header("ℹ️ Help & Documentation")
     
     # AI Instructions Download
@@ -897,7 +693,7 @@ def show_help():
         data=get_ai_instructions(),
         file_name="AI_Instructions_PowerPoint_Generator.txt",
         mime="text/plain",
-        help="Download this file to give to AI (ChatGPT, Claude, etc.)"
+        help="Download this file to give to AI"
     )
     
     st.markdown("### 📝 Sample AI Prompts")
@@ -905,7 +701,7 @@ def show_help():
     with st.expander("🗣️ Conversation Practice Lesson"):
         st.code("""I need to create an English lesson using the PowerPoint Generator format.
 
-[Attach or paste the AI_Instructions_PowerPoint_Generator.txt file]
+[Attach the AI instruction file]
 
 Please create a lesson with these specifications:
 - Topic: Conversation practice - Making small talk at networking events
@@ -913,288 +709,99 @@ Please create a lesson with these specifications:
 - Duration: 60 minutes
 - Focus: Ice breakers, follow-up questions, showing interest
 - Include: Vocabulary, example dialogues, practice activities
-- 8-10 slides following the structure in the instructions
+- 8-10 slides following the structure
 
 Generate the complete content file in the exact format specified.""", language="text")
     
     with st.expander("💼 Business English Lesson"):
-        st.code("""I need to create an English lesson using the PowerPoint Generator format.
+        st.code("""I need to create an English lesson.
 
-[Attach or paste the AI_Instructions_PowerPoint_Generator.txt file]
+[Attach the AI instruction file]
 
-Please create a lesson with these specifications:
+Specifications:
 - Topic: Writing professional emails - Making requests
 - Level: B2 (Upper Intermediate)
 - Duration: 60 minutes
-- Focus: Formal language, polite requests, appropriate tone
-- Include: Email structure, key phrases, practice writing activity
-- 8-10 slides following the structure in the instructions
+- 8-10 slides
 
-Generate the complete content file in the exact format specified.""", language="text")
-    
-    with st.expander("🔬 Technical/Specialist Language"):
-        st.code("""I need to create an English lesson using the PowerPoint Generator format.
-
-[Attach or paste the AI_Instructions_PowerPoint_Generator.txt file]
-
-Please create a lesson with these specifications:
-- Topic: IT Architecture - Describing cloud infrastructure
-- Level: B2-C1 (Business English for Technical Architects)
-- Duration: 60 minutes
-- Focus: Technical vocabulary, explaining systems, comparing solutions
-- Include: Case study, technical terms, practice describing projects
-- 8-10 slides following the structure in the instructions
-
-Generate the complete content file in the exact format specified.""", language="text")
-    
-    with st.expander("📰 News Article Lesson"):
-        st.code("""I need to create an English lesson using the PowerPoint Generator format.
-
-[Attach or paste the AI_Instructions_PowerPoint_Generator.txt file]
-
-Please create a lesson based on this news article:
-[Paste the article text or URL]
-
-Specifications:
-- Level: B1 (Intermediate)
-- Duration: 60 minutes
-- Include: Simplified reading passage (200 words), comprehension questions, vocabulary, discussion
-- 8-10 slides following the structure in the instructions
-
-Generate the complete content file in the exact format specified.""", language="text")
-    
-    with st.expander("📚 Grammar Focus Lesson"):
-        st.code("""I need to create an English lesson using the PowerPoint Generator format.
-
-[Attach or paste the AI_Instructions_PowerPoint_Generator.txt file]
-
-Please create a lesson with these specifications:
-- Topic: Past Simple vs Present Perfect
-- Level: B1 (Intermediate)
-- Duration: 60 minutes
-- Focus: Form, usage differences, time expressions, practice
-- Include: Rule explanation, examples, controlled practice, freer practice
-- 8-10 slides following the structure in the instructions
-
-Generate the complete content file in the exact format specified.""", language="text")
+Generate in the exact format specified.""", language="text")
     
     st.markdown("---")
-    
     st.markdown("### 🎨 Adding Images & Animations")
     
-    st.info("""
-    **Best Practice:** Add images and animations AFTER generating your presentation.
+    st.info("**Best Practice:** Add images and animations AFTER generating your presentation for more control.")
     
-    This gives you more control and makes it easier to find the perfect visuals.
-    """)
-    
-    # Platform selection tabs
     img_tab1, img_tab2 = st.tabs(["📊 Google Slides", "📊 PowerPoint"])
     
     with img_tab1:
-        col1, col2 = st.columns(2)
+        st.markdown("#### Adding Images in Google Slides")
+        st.write("""
+        1. **Insert** > **Image** > **Search the web** or **Upload from computer**
+        2. Resize and position as needed
         
-        with col1:
-            st.markdown("#### 📷 Adding Images in Google Slides")
-            st.write("""
-            **Method 1: Upload from Computer**
-            1. Click **Insert** > **Image** > **Upload from computer**
-            2. Select your image file
-            3. Drag to resize and position
-            
-            **Method 2: Search the Web**
-            1. Click **Insert** > **Image** > **Search the web**
-            2. Search for your image (uses Google Images)
-            3. Click to insert
-            
-            **Method 3: Insert by URL**
-            1. Click **Insert** > **Image** > **By URL**
-            2. Paste image link from Unsplash, Pexels, etc.
-            3. Click **Insert**
-            
-            **Method 4: Google Drive**
-            - **Insert** > **Image** > **Drive** to use saved images
-            
-            **Tip:** Right-click image > **Image options** for advanced formatting
-            """)
+        **Free Stock Images:**
+        - [Unsplash](https://unsplash.com)
+        - [Pexels](https://pexels.com)
+        - [Pixabay](https://pixabay.com)
+        """)
         
-        with col2:
-            st.markdown("#### ✨ Adding Animations in Google Slides")
-            st.write("""
-            **Basic Animations:**
-            1. **Select** the text box or object
-            2. Click **Insert** > **Animation** (or **Slide** menu)
-            3. Click **+ Add animation** in the panel
-            4. Choose animation type:
-               - **Fade in** - subtle reveal
-               - **Fly in from left/right** - dynamic entry
-               - **Zoom** - emphasis effect
-            5. Set **speed** (Slow/Medium/Fast)
-            6. Choose **Start condition**:
-               - On click (default)
-               - After previous
-               - With previous
-            
-            **Animation Panel:**
-            - Shows all animations on slide
-            - Drag to reorder
-            - Click play ▶️ to preview
-            
-            **Note:** The `[step]` tag creates separate text boxes that you can animate individually.
-            """)
-        
-        st.markdown("**🔍 Recommended Stock Image Sites:**")
-        st.markdown("""
-        - 🔸 [Unsplash](https://unsplash.com) - High quality, free (right-click > Copy image address)
-        - 🔸 [Pexels](https://pexels.com) - Diverse photos & videos (use "Copy link" button)
-        - 🔸 [Pixabay](https://pixabay.com) - Photos, vectors, illustrations
-        - 🔸 Google Images - Built into Slides (**Insert** > **Image** > **Search the web**)
+        st.markdown("#### Adding Animations")
+        st.write("""
+        1. Select text box or object
+        2. **Insert** > **Animation**
+        3. Choose: Fade in, Fly in, Zoom
+        4. Set timing (On click, After previous)
         """)
     
     with img_tab2:
-        col1, col2 = st.columns(2)
+        st.markdown("#### Adding Images in PowerPoint")
+        st.write("""
+        1. **Insert** > **Pictures** > Choose source
+        2. Resize and position
         
-        with col1:
-            st.markdown("#### 📷 Adding Images in PowerPoint")
-            st.write("""
-            1. **Open** your generated presentation
-            2. **Go to** Insert > Pictures
-            3. **Choose from:**
-               - This Device (your files)
-               - Stock Images (built-in)
-               - Online Pictures (Bing search)
-            4. **Resize & position** as needed
-            
-            **Recommended Stock Image Sites:**
-            - 🔸 [Unsplash](https://unsplash.com) - High quality, free
-            - 🔸 [Pexels](https://pexels.com) - Diverse photos & videos
-            - 🔸 [Pixabay](https://pixabay.com) - Photos, vectors, illustrations
-            - 🔸 PowerPoint's built-in stock images
-            """)
+        **Free Stock Images:**
+        - [Unsplash](https://unsplash.com)
+        - [Pexels](https://pexels.com)
+        - PowerPoint's built-in stock images
+        """)
         
-        with col2:
-            st.markdown("#### ✨ Adding Animations in PowerPoint")
-            st.write("""
-            1. **Select** the text or object
-            2. **Go to** Animations tab
-            3. **Choose** an animation effect
-            4. **Set** timing and order
-            
-            **Popular Choices:**
-            - 🔸 Fade/Appear - subtle reveals
-            - 🔸 Fly In - dynamic entry
-            - 🔸 Wipe - directional reveal
-            - 🔸 Animation Pane - manage all animations
-            
-            **Note:** The `[step]` tag in your content creates basic text reveals automatically.
-            """)
+        st.markdown("#### Adding Animations")
+        st.write("""
+        1. Select text or object
+        2. **Animations** tab
+        3. Choose effect
+        4. Set timing and order
+        """)
     
     st.markdown("---")
-    
     st.markdown("### Getting Started")
     st.write("""
-    **Option 1: Use AI to Generate Content** ⭐ Recommended
-    1. **Download** the AI instruction file above
-    2. **Give it to AI** (ChatGPT, Claude, Gemini, etc.) with your lesson specifications
-    3. **Copy** the generated content
-    4. **Paste** into the editor or upload as .txt file
-    5. **Validate** and **Generate**
-    6. **Add images & animations** in PowerPoint
+    **Option 1: Use AI** ⭐ Recommended
+    1. Download AI instruction file
+    2. Give to ChatGPT/Claude with specifications
+    3. Copy generated content
+    4. Paste into editor
+    5. Generate PowerPoint
+    6. Add images in PowerPoint
     
-    **Option 2: Write Content Manually**
-    1. **Write or upload** your lesson content using the generator syntax
-    2. **Validate** to check for errors
-    3. **Generate** to create your PowerPoint presentation
-    4. **Add images & animations** in PowerPoint
-    5. **Download** and use in your lesson!
+    **Option 2: Write Manually**
+    1. Write content using the syntax
+    2. Validate to check for errors
+    3. Generate PowerPoint
+    4. Add images in PowerPoint
     """)
     
     st.markdown("### Common Questions")
     
     with st.expander("❓ How do I create a slide?"):
-        st.write("""
-        Every slide must start with:
-        ```
-        Slide 1
-        Title: Your Title
-        ```
-        Then add content using Content:, Left:, Right:, etc.
-        Separate slides with `---`
-        """)
-    
-    with st.expander("❓ Should I include image references in my content?"):
-        st.write("""
-        **No!** It's much easier to add images directly in PowerPoint after generating.
-        
-        This way you can:
-        - Browse and preview images easily
-        - Resize and position them perfectly
-        - Use PowerPoint's built-in stock images
-        - Make changes without regenerating
-        """)
+        st.code("Slide 1\nTitle: Your Title\nContent: Your content", language="text")
     
     with st.expander("❓ How do animations work?"):
-        st.write("""
-        **Basic animations:** Use the `[step]` tag in your content for automatic text reveals.
-        
-        **Advanced animations:** Add these in PowerPoint after generating for full control.
-        
-        Example in content:
-        ```
-        Content: [step] First point
-        Content: [step] Second point
-        Content: [step] Third point
-        ```
-        """)
+        st.write("Use `[step]` for basic reveals, add advanced animations in PowerPoint after.")
     
-    with st.expander("❓ What if my text is too long?"):
-        st.write("""
-        The generator automatically reduces font size for long text:
-        - 300+ characters → 18pt
-        - 500+ characters → 16pt
-        - 700+ characters → 14pt
-        
-        You'll see overflow warnings during validation.
-        """)
-    
-    with st.expander("❓ Can I use this for any subject?"):
-        st.write("""
-        **Yes!** While designed for language teaching, the generator works for:
-        - Any educational subject
-        - Training presentations
-        - Workshop materials
-        - Corporate training
-        - Academic lectures
-        
-        Just focus on clear text content and add subject-specific images in PowerPoint.
-        """)
-    
-    st.markdown("### Example Lesson Structure")
-    
-    st.code("""
-Slide 1 - Title & Objectives (with [step] animations)
-Slide 2 - Lead-in Discussion (with [question] tags)
-Slide 3 - Reading Passage + Questions (LeftTop/LeftBottom)
-Slide 4 - Vocabulary (Two-column or four-box layout)
-Slide 5 - Main Content/Explanation (Choose appropriate layout)
-Slide 6 - Practice Exercise
-Slide 7 - Speaking/Production Activity
-Slide 8 - Recap & Homework
+    with st.expander("❓ What if text is too long?"):
+        st.write("Generator auto-reduces font size. You'll see overflow warnings during validation.")
 
-Then add relevant images and extra animations in PowerPoint!
-    """, language="text")
-
-
-
-    """Show help and documentation"""
-    st.header("ℹ️ Help & Documentation")
-    
-    st.markdown("### 🤖 Use AI to Create Lesson Content")
-    
-    st.info("💡 **Tip:** Let AI do the work! Download the instruction file, give it to any AI (ChatGPT, Claude, etc.) with your lesson requirements, and it will generate properly formatted content.")
-    
-    # Add rest of help section here from previous artifact
-    
 
 # ============================================================================
 # MAIN APPLICATION
@@ -1338,7 +945,7 @@ def main():
     tab1, tab2, tab3 = st.tabs(["✏️ Editor", "📖 Quick Reference", "❓ Help"])
     
     with tab1:
-        show_editor()  # Now calls the preview-enabled editor
+        show_editor()
     
     with tab2:
         show_reference()
