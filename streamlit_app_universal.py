@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Import the universal generator
+# Import the universal generator safely
 # ---------------------------------------------------------------------------
 try:
     from generate_presentation_universal import (
@@ -17,9 +17,27 @@ try:
         validate_slide, DEFAULT_CONFIG
     )
     GENERATOR_AVAILABLE = True
-except ImportError:
+except Exception as e:
     GENERATOR_AVAILABLE = False
-    st.error("⚠️ Generator module not found. Make sure generate_presentation_universal.py is present.")
+    st.warning("⚠️ Universal generator could not be loaded.")
+    st.exception(e)
+    # provide a minimal fallback so the app still opens
+    DEFAULT_CONFIG = {
+        "font_name": "Calibri",
+        "title_font_name": "Calibri",
+        "text_color": [0, 0, 0],
+        "title_color": [0, 0, 0],
+        "background_color": [255, 255, 255],
+        "background_image": None,
+        "enable_slide_numbers": True,
+        "enable_overflow_warnings": True,
+        "styles": {
+            "vocabulary": {"color": [0, 128, 0]},
+            "question": {"color": [128, 0, 128]},
+            "answer": {"color": [96, 96, 96]},
+            "emphasis": {"color": [192, 0, 0]},
+        },
+    }
 
 # ---------------------------------------------------------------------------
 # Streamlit page config and basic styling
@@ -527,3 +545,4 @@ Slide 8 - Recap & Homework
 
     st.markdown("---")
     st.markdown("💡 **Note:** You can further refine your presentation after export — add animations, transitions, and stock images directly inside PowerPoint or Google Slides.")
+
