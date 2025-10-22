@@ -1485,8 +1485,6 @@ def generate_lesson_with_ai(prompt, level, duration):
 if __name__ == "__main__":
     main()
 
-if __name__ == "__main__":
-    main()
 
 
 
