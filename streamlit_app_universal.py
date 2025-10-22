@@ -18,9 +18,19 @@ try:
         merge_config, parse_content_file, build_presentation,
         validate_slide, DEFAULT_CONFIG
     )
+    from slide_previewer import create_slide_preview, create_thumbnail_grid
+    from ai_content_generator import (
+        generate_with_gemini, generate_with_openai, generate_with_claude,
+        get_template_prompt, PROMPT_TEMPLATES
+    )
     GENERATOR_AVAILABLE = True
-except ImportError:
+    PREVIEW_AVAILABLE = True
+    AI_AVAILABLE = True
+except ImportError as e:
+except ImportError as e:
     GENERATOR_AVAILABLE = False
+    PREVIEW_AVAILABLE = False
+    AI_AVAILABLE = False
     st.error("⚠️ Generator module not found.")
     # Fallback DEFAULT_CONFIG
     DEFAULT_CONFIG = {
@@ -508,8 +518,66 @@ def generate_presentation():
 def show_editor():
     """Enhanced editor with live preview panel"""
     st.header("Content Editor")
+
+    # AI Generator section
+    if AI_AVAILABLE and hasattr(st.session_state, 'ai_provider') and st.session_state.ai_provider and st.session_state.ai_provider != "None":
+        with st.expander("🤖 Generate with AI", expanded=False):
+            st.markdown("### Describe Your Lesson")
+            
+            col1, col2, col3 = st.columns([2, 1, 1])
+            
+            with col1:
+                lesson_type = st.selectbox(
+                    "Lesson Type:",
+                    list(PROMPT_TEMPLATES.keys()) if AI_AVAILABLE else ["Custom"]
+                )
+            
+            with col2:
+                level = st.selectbox("Level:", ["A1", "A2", "B1", "B2", "C1", "C2"], index=2)
+            
+            with col3:
+                duration = st.selectbox("Duration:", ["30", "45", "60", "90"], index=2)
+            
+            # Topic/prompt input
+            if lesson_type == "Custom":
+                topic_prompt = st.text_area(
+                    "Describe what you want:",
+                    placeholder="e.g., Create a lesson about job interviews...",
+                    height=100
+                )
+            else:
+                topic = st.text_input(
+                    "Topic:",
+                    placeholder="e.g., job interviews, complaints, past tense..."
+                )
+                
+                if topic:
+                    template_text = get_template_prompt(lesson_type, topic, level, duration)
+                    topic_prompt = st.text_area(
+                        "AI Prompt (edit if needed):",
+                        value=template_text,
+                        height=100
+                    )
+                else:
+                    topic_prompt = ""
+            
+            # Generate button
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                if st.button("✨ Generate Lesson", type="primary", disabled=not topic_prompt):
+                    if not st.session_state.ai_key:
+                        st.error("⚠️ Please add your API key in the sidebar")
+                    else:
+                        generate_lesson_with_ai(topic_prompt, level, duration)
+            
+            with col2:
+                if st.session_state.get('ai_generating'):
+                    st.info("🤖 AI is generating your lesson...")
+    
+    st.markdown("---")
     
     # File operations
+   
     col1, col2, col3 = st.columns([1, 1, 2])
     
     with col1:
@@ -1322,6 +1390,42 @@ def main():
             st.session_state.custom_config["enable_overflow_warnings"] = enable_warnings
         
         st.markdown("---")
+        # AI Generator section
+        if AI_AVAILABLE:
+            with st.expander("🤖 AI Content Generator", expanded=False):
+                st.markdown("**Generate lessons with AI**")
+                
+                ai_provider = st.selectbox(
+                    "AI Provider:",
+                    ["None", "Google Gemini (Free!)", "OpenAI (GPT-4)", "Claude (Anthropic)"]
+                )
+                
+                if ai_provider != "None":
+                    api_key = st.text_input(
+                        "API Key:",
+                        type="password",
+                        help="Your API key is stored only for this session"
+                    )
+                    
+                    if ai_provider == "Google Gemini (Free!)":
+                        st.info("🆓 Get free API key: [makersuite.google.com/app/apikey](https://makersuite.google.com/app/apikey)")
+                    elif ai_provider == "OpenAI (GPT-4)":
+                        st.info("🔑 Get API key: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)")
+                    elif ai_provider == "Claude (Anthropic)":
+                        st.info("🔑 Get API key: [console.anthropic.com](https://console.anthropic.com)")
+                    
+                    if api_key:
+                        st.session_state.ai_provider = ai_provider
+                        st.session_state.ai_key = api_key
+                        st.success("✅ API key configured")
+                    else:
+                        st.session_state.ai_provider = None
+                        st.session_state.ai_key = None
+                else:
+                    st.session_state.ai_provider = None
+                    st.session_state.ai_key = None
+        
+        st.markdown("---")
         
         if st.button("🔄 Reset to Defaults"):
             st.session_state.custom_config = DEFAULT_CONFIG.copy()
@@ -1342,10 +1446,48 @@ def main():
     
     with tab3:
         show_help_section()
+def generate_lesson_with_ai(prompt, level, duration):
+    """Generate lesson content using AI"""
+    st.session_state.ai_generating = True
+    
+    try:
+        provider = st.session_state.ai_provider
+        api_key = st.session_state.ai_key
+        
+        with st.spinner(f"🤖 {provider} is generating your lesson..."):
+            if "Gemini" in provider:
+                content, error = generate_with_gemini(prompt, api_key, level, duration)
+            elif "OpenAI" in provider:
+                content, error = generate_with_openai(prompt, api_key, level, duration)
+            elif "Claude" in provider:
+                content, error = generate_with_claude(prompt, api_key, level, duration)
+            else:
+                content, error = None, "Unknown provider"
+            
+            if error:
+                st.error(f"❌ Generation failed: {error}")
+                st.info("💡 Tip: Try rephrasing your prompt or check your API key")
+            elif content:
+                st.session_state.content = content
+                st.success("✅ Lesson generated! Content loaded into editor below.")
+                st.info("👀 Review the content and click 'Generate PowerPoint' when ready")
+                st.rerun()
+            else:
+                st.error("❌ No content generated. Please try again.")
+    
+    except Exception as e:
+        st.error(f"❌ Error: {str(e)}")
+    
+    finally:
+        st.session_state.ai_generating = False
 
 
 if __name__ == "__main__":
     main()
+
+if __name__ == "__main__":
+    main()
+
 
 
 
