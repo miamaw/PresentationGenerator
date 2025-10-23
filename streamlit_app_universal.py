@@ -11,27 +11,22 @@ import io
 import base64
 import re
 from pathlib import Path
+from tag_parser import parse_inline_tags
 
 # Import the universal generator
+GENERATOR_AVAILABLE = False
+PREVIEW_AVAILABLE = True  # Built-in preview always available
+AI_AVAILABLE = False
+
+# Try to import core generator
 try:
     from generate_presentation_universal import (
         merge_config, parse_content_file, build_presentation,
         validate_slide, DEFAULT_CONFIG
     )
-    from slide_previewer import create_slide_preview, create_thumbnail_grid
-    from ai_content_generator import (
-        generate_with_gemini, generate_with_openai, generate_with_claude,
-        get_template_prompt, PROMPT_TEMPLATES
-    )
     GENERATOR_AVAILABLE = True
-    PREVIEW_AVAILABLE = True
-    AI_AVAILABLE = True
 except ImportError as e:
-except ImportError as e:
-    GENERATOR_AVAILABLE = False
-    PREVIEW_AVAILABLE = False
-    AI_AVAILABLE = False
-    st.error("⚠️ Generator module not found.")
+    st.warning(f"⚠️ Core generator not found. Preview and AI features still available.")
     # Fallback DEFAULT_CONFIG
     DEFAULT_CONFIG = {
         "background_image": None,
@@ -51,6 +46,19 @@ except ImportError as e:
             "emphasis": {"font_size": 22, "color": [192, 0, 0], "bold": True}
         }
     }
+
+# Try to import AI generator (optional)
+try:
+    from ai_content_generator import (
+        generate_with_gemini, generate_with_openai, generate_with_claude,
+        get_template_prompt, PROMPT_TEMPLATES
+    )
+    AI_AVAILABLE = True
+    st.success("✅ AI Content Generator loaded successfully!")
+except ImportError as e:
+    # AI features are optional
+    PROMPT_TEMPLATES = {}
+    st.info("💡 AI features not available. Install packages: pip install google-generativeai openai anthropic")
 
 # Page configuration
 st.set_page_config(
@@ -82,6 +90,31 @@ def hex_to_rgb(hex_color):
     """Convert hex color to RGB list"""
     hex_color = hex_color.lstrip('#')
     return [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
+
+def normalize_legacy_inline_tags(text):
+    """
+    Ensures open-only tags like [emphasis] word or inline [answer]went
+    are converted into closed-tag form [emphasis]word[/emphasis].
+    Works anywhere in the line.
+    """
+    import re
+    # Normalize spacing
+    text = re.sub(r'\s+', ' ', text)
+
+    # Convert bare [tag] word → [tag]word[/tag]
+    def close_tag(m):
+        tag, inner = m.group(1), m.group(2).strip()
+        return f"[{tag}]{inner}[/{tag}]"
+
+    text = re.sub(
+        r'\[(vocabulary|question|answer|emphasis)\]\s*([^\[\]]+?)(?=\s|[.,!?]|$)',
+        close_tag,
+        text,
+        flags=re.I
+    )
+
+    return text
+
 
 
 def get_quick_reference():
@@ -263,27 +296,29 @@ def show_slide_preview(slide, slide_num, config):
     
     # Content styling helper
     def get_styled_text(text, config):
-        """Apply style tag colors"""
-        text = re.sub(r'\[step\]\s*', '', text)
+        """Apply style tag colors using unified parser"""
+        segments = parse_inline_tags(text)
         
-        if '[vocabulary]' in text:
-            text = text.replace('[vocabulary]', '')
-            vocab_color = rgb_to_hex(config["styles"]["vocabulary"]["color"])
-            return f'<span style="color: {vocab_color}; font-weight: bold;">{text}</span>'
-        elif '[question]' in text:
-            text = text.replace('[question]', '')
-            q_color = rgb_to_hex(config["styles"]["question"]["color"])
-            return f'<span style="color: {q_color};">{text}</span>'
-        elif '[answer]' in text:
-            text = text.replace('[answer]', '')
-            a_color = rgb_to_hex(config["styles"]["answer"]["color"])
-            return f'<span style="color: {a_color}; font-style: italic;">{text}</span>'
-        elif '[emphasis]' in text:
-            text = text.replace('[emphasis]', '')
-            e_color = rgb_to_hex(config["styles"]["emphasis"]["color"])
-            return f'<span style="color: {e_color}; font-weight: bold;">{text}</span>'
+        html_parts = []
+        for content, style_name in segments:
+            if style_name:
+                # Get color and formatting for this style
+                style = config["styles"].get(style_name, {})
+                style_color = rgb_to_hex(style["color"])
+                is_bold = style.get("bold", False)
+                is_italic = style.get("italic", False)
+                
+                style_attrs = [f"color: {style_color}"]
+                if is_bold:
+                    style_attrs.append("font-weight: bold")
+                if is_italic:
+                    style_attrs.append("font-style: italic")
+                
+                html_parts.append(f'<span style="{"; ".join(style_attrs)}">{content}</span>')
+            else:
+                html_parts.append(content)
         
-        return text
+        return ''.join(html_parts)
     
     # Build complete HTML structure
     html_content = f"""
@@ -510,6 +545,53 @@ def generate_presentation():
         st.error(f"❌ Error generating presentation: {str(e)}")
         st.exception(e)
 
+# ============================================================================
+# AI CONTENT GENERATION
+# ============================================================================
+
+def generate_lesson_with_ai(prompt, level, duration):
+    """Generate lesson content using AI"""
+    if 'ai_generating' not in st.session_state:
+        st.session_state.ai_generating = False
+    
+    st.session_state.ai_generating = True
+    
+    try:
+        provider = st.session_state.get('ai_provider')
+        api_key = st.session_state.get('ai_key')
+        
+        if not provider or not api_key:
+            st.error("❌ Please configure AI provider and API key in sidebar")
+            return
+        
+        with st.spinner(f"🤖 {provider} is generating your lesson..."):
+            if "Gemini" in provider:
+                content, error = generate_with_gemini(prompt, api_key, level, duration)
+            elif "OpenAI" in provider:
+                content, error = generate_with_openai(prompt, api_key, level, duration)
+            elif "Claude" in provider:
+                content, error = generate_with_claude(prompt, api_key, level, duration)
+            else:
+                content, error = None, "Unknown provider"
+            
+            if error:
+                st.error(f"❌ Generation failed: {error}")
+                st.info("💡 Tip: Try rephrasing your prompt or check your API key")
+            elif content:
+                st.session_state.content = content
+                st.success("✅ Lesson generated! Content loaded into editor below.")
+                st.info("👀 Review the content and click 'Generate PowerPoint' when ready")
+                st.rerun()
+            else:
+                st.error("❌ No content generated. Please try again.")
+    
+    except Exception as e:
+        st.error(f"❌ Error: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+    
+    finally:
+        st.session_state.ai_generating = False
 
 # ============================================================================
 # EDITOR WITH PREVIEW
@@ -740,284 +822,436 @@ def show_reference():
 """)
 
 
-
-
 def get_ai_instructions():
-    """Return complete AI instruction file content - SHARED ACROSS BOTH VERSIONS"""
+    """
+    Return the full AI Instruction File for human users.
+    This file is downloaded via the Help tab so users can give it directly
+    to ChatGPT, Claude, Gemini, etc., to create content manually.
+    """
     return """================================================================================
-AI INSTRUCTIONS: PowerPoint Generator Content Format
+AI INSTRUCTIONS: PowerPoint Generator Content Format 
 ================================================================================
 
-PURPOSE: You are creating lesson content for the PowerPoint Generator.
-This file explains the EXACT format required for the content to work properly.
+PURPOSE
+--------
+You are creating English lesson content for the Universal PowerPoint Generator.
+The goal is to produce text-based lesson slides that the generator can automatically
+convert into PowerPoint format with correct layout and styling.
 
 ================================================================================
-CRITICAL FORMATTING RULES
+⚠️  CRITICAL TAG USAGE 
 ================================================================================
 
-1. EVERY slide must start with "Slide X" (where X is any number)
-2. EVERY slide must have "Title: [text]"
-3. Content is organized in sections: Content:, Left:, Right:, etc.
-4. Use "---" to separate slides (optional but recommended)
-5. Multiple lines under the same section are allowed
-6. Lines starting with "#" are comments (ignored)
+**INLINE TAGS MUST BE EXPLICITLY CLOSED**
+
+The system now requires that all inline style tags wrap ONLY the exact word or 
+phrase you want to style. Tags will NO LONGER capture multiple words automatically.
+
+✅ CORRECT - Explicit closing tags:
+Content: The student [answer]completed[/answer] the task.
+Content: [question]Have you ever traveled abroad?[/question]
+Content: He used the [vocabulary]Present Perfect[/vocabulary] tense.
+Content: [emphasis]Never forget[/emphasis] to add the final -ed.
+
+❌ INCORRECT - Will only style ONE word:
+Content: [answer] completed the task  ← Only "completed" will be styled!
+Content: [emphasis] Never forget      ← Only "Never" will be styled!
 
 ================================================================================
-CONTENT SECTIONS
+FORMAT OVERVIEW
 ================================================================================
 
-Content:        Single column content (default layout)
-Left:           Left column in two-column layout
-Right:          Right column in two-column layout
-LeftTop:        Top-left box in four-box layout
-RightTop:       Top-right box in four-box layout
-LeftBottom:     Bottom-left box in four-box layout
-RightBottom:    Bottom-right box in four-box layout
-Notes:          Teacher notes (not visible on slides)
-Template:       Apply predefined template (vocabulary, reading, comparison)
+1️⃣ Every slide must start with:
+   Slide X
+   Title: [your slide title]
+
+2️⃣ Content must use one of the following layout types:
+   - Single column → Content:
+   - Two columns → Left: / Right:
+   - Four boxes → LeftTop:, RightTop:, LeftBottom:, RightBottom:
+
+3️⃣ Each slide ends (optionally) with a separator:
+   ---
+
+4️⃣ Every slide MUST have:
+   - A Title line
+   - At least one content section
+   - Notes: (teacher instructions, timing, etc.)
+
+5️⃣ Titles must be under 60 characters.
 
 ================================================================================
-LAYOUT SELECTION LOGIC
+LAYOUT TYPES
 ================================================================================
 
-USE Content: FOR:
-- Simple slides with one main message
-- Title slides with objectives
-- Instructions
-- Single-topic explanations
-
-USE Left: and Right: FOR:
-- Vocabulary (word | definition)
-- Comparisons (before | after)
-- Advantages vs Disadvantages
-- Theory vs Practice
-
-USE LeftTop:, RightTop:, LeftBottom:, RightBottom: FOR:
-- Four related concepts (4 project phases, 4 skills)
-- Grammar explanations with examples and practice
-- Pros/cons with solutions/alternatives
-
-USE LeftTop: (passage) and LeftBottom: (questions) FOR:
-- Reading comprehension
-- Case studies with questions
-- Longer texts with follow-up questions
-
-================================================================================
-STYLE TAGS - USE THESE FOR FORMATTING
-================================================================================
-
-[vocabulary]    Bold text - Use for NEW vocabulary terms
-[question]      Styled text - Use for discussion questions
-[answer]        Italic text - Use for model answers
-[emphasis]      Bold text - Use for key takeaways
-[step]          Creates animations - Use for sequential reveals
-
-EXAMPLES:
-Content: [vocabulary] resilience - the ability to recover from failures
-Content: [question] What challenges do you face in your role?
-Content: [answer] Common challenges include time management and priorities
-Content: [emphasis] Remember: Always validate before submitting!
-Content: [step] First, identify the problem
-Content: [step] Then, analyze possible solutions
-Content: [step] Finally, implement and monitor
-
-NOTE: Colors are customizable in the web app settings.
-
-================================================================================
-CONTENT LENGTH GUIDELINES
-================================================================================
-
-Slide Titles:       Max 60 characters
-Single Column:      Up to 500 characters per slide
-Two Columns:        Up to 300 characters per column
-Four Boxes:         Up to 150 characters per box
-Reading Passages:   800-1000 characters (150-250 words)
-Questions:          3-5 questions per slide maximum
-Vocabulary Items:   4-6 terms per slide
-
-IMPORTANT: Long text automatically reduces font size, but there are limits!
-
-================================================================================
-ANIMATIONS & IMAGES - HANDLE IN POWERPOINT
-================================================================================
-
-DO NOT INCLUDE IMAGE REFERENCES OR COMPLEX ANIMATIONS IN YOUR CONTENT FILE.
-
-Instead:
-✓ Generate clean text-based slides
-✓ Add images later in PowerPoint using Insert > Pictures
-✓ Recommended: Use stock photo sites like Unsplash, Pexels, Pixabay
-✓ Add animations in PowerPoint using the Animations tab
-✓ Use [step] tag only for basic text reveals (handled automatically)
-
-Why this approach is better:
-- Easier to find and place images in PowerPoint
-- More control over image sizing and positioning
-- Access to PowerPoint's full animation suite
-- Can use built-in stock images (Insert > Stock Images)
-- Easier to update and modify later
-
-================================================================================
-LESSON STRUCTURE TEMPLATE
-================================================================================
-
-A well-structured lesson should follow this pattern:
-
-Slide 1: Title + Objectives
-- Use [emphasis] for lesson number/name
-- Use [step] for each learning objective (3-4 max)
-- Add Notes: with timing and warm-up question
-
-Slide 2: Lead-in / Discussion
-- Use [question] for discussion prompts
-- Add bullet points with "Think about:"
-- Add Notes: with interaction instructions
-
-Slide 3: Reading / Case Study
-- Use LeftTop: for passage (150-250 words)
-- Use LeftBottom: for comprehension questions (3-4)
-- Add Notes: with reading strategy
-
-Slide 4: Vocabulary
-- Option A: Use Template: vocabulary
-- Option B: Use Left: (term) and Right: (definition)
-- Use [vocabulary] tag on terms
-- Add Notes: with pronunciation tips
-
-Slide 5: Grammar / Language Focus
-- Use four-box layout for rules, examples, practice, notes
-- LeftTop: [emphasis] Rule/Form with explanation
-- RightTop: [emphasis] Practice with exercises
-- LeftBottom: [emphasis] Common Errors
-- RightBottom: [emphasis] Usage Notes
-
-Slide 6: Practice Activity
-- Use Content: with [emphasis] for task title
-- Use [step] for sequential instructions
-- Add Notes: with timing and monitoring tips
-
-Slide 7: Speaking / Production
-- Use [question] for prompts
-- Provide structure/scaffolding
-- Add Notes: with grouping suggestions
-
-Slide 8: Recap + Reflection
-- Use [emphasis] for "Today we covered:"
-- Use checkmarks (✓) for completed items
-- Use [question] for reflection questions
-- Add Notes: with homework assignment
-
-================================================================================
-EXAMPLE COMPLETE SLIDE
-================================================================================
+✅ **SINGLE COLUMN**
+For objectives, introductions, or explanations.
 
 Slide 1
-Title: Professional Email Writing
-Content: [emphasis] Lesson 1
-Content: Business Communication Skills
-Content: 
-Content: Today's Focus:
-Content: [step] Email structure and conventions
-Content: [step] Professional language and tone
-Content: [step] Common business phrases
-Notes: Warm-up about email challenges. 5 minutes. Add company logo image in PowerPoint.
+Title: Lesson Objectives
+Content: [emphasis]Lesson 1[/emphasis] – Past Simple
+Content: [step] Talk about past experiences
+Content: [step] Describe completed actions
+Notes: Review previous session briefly. 5 mins.
 
 ---
+
+✅ **TWO COLUMNS**
+For vocabulary, comparisons, or short Q&A.
 
 Slide 2
-Title: Lead-in Discussion
-Content: [question] How many emails do you write per week?
-Content: [question] What makes a professional email effective?
-Content: 
-Content: Think about:
-Content: • Clarity and conciseness
-Content: • Appropriate tone
-Content: • Professional formatting
-Notes: Pair discussion 3 minutes. Elicit responses. Add relevant stock photo in PowerPoint.
+Title: Vocabulary – Travel Verbs
+Left: [vocabulary]book[/vocabulary]
+Right: to arrange a ticket, hotel, or flight
+Left: [vocabulary]pack[/vocabulary]
+Right: to put things in a bag for travel
+Notes: Drill pronunciation and example sentences.
 
 ---
 
+✅ **FOUR BOXES**
+For grammar, structured topics, or examples.
+
+Slide 3
+Title: Grammar – Past Simple
+LeftTop: [emphasis]FORM[/emphasis]
+LeftTop: Subject + Verb (-ed or irregular)
+RightTop: [emphasis]USE[/emphasis]
+RightTop: Finished actions in finished time
+LeftBottom: [emphasis]EXAMPLES[/emphasis]
+LeftBottom: • I [answer]went[/answer] to France in 2018.
+RightBottom: [emphasis]TIME MARKERS[/emphasis]
+RightBottom: • yesterday • last week • in 2010
+Notes: Elicit examples. Clarify difference between regular/irregular verbs.
+
+---
+
+✅ **READING COMPREHENSION**
+Use LeftTop for passage, LeftBottom for questions.
+
+Slide 4
+Title: Reading – Weekend Plans
+LeftTop: Last weekend I visited my grandparents. We cooked together and watched a film.
+LeftBottom: [question]What did the writer do last weekend?[/question]
+LeftBottom: [question]Who did they visit?[/question]
+Notes: Read aloud, check comprehension, highlight past tense verbs.
+
 ================================================================================
-TEACHER NOTES - ALWAYS INCLUDE
+STYLE TAGS - EXPLICIT CLOSING REQUIRED
 ================================================================================
 
-Every slide should have Notes: with:
-- Timing estimate (e.g., "5 minutes")
-- Interaction type (pair work, whole class, individual)
-- Key instructions for teacher
-- Common errors to watch for
-- Extension activities if time permits
-- Suggestions for images to add later (optional)
+✅ Supported tags:
+[vocabulary]...[/vocabulary]   → new terms
+[question]...[/question]       → learner prompts  
+[answer]...[/answer]           → model answers
+[emphasis]...[/emphasis]       → important points
+[step]                         → sequential reveal (no closing tag needed)
 
-EXAMPLE:
-Notes: Elicit answers first. Drill pronunciation. CCQ: "Can something resilient break easily?" (No). Give 2 min for pair discussion. Monitor for past tense errors. 8-10 minutes total. Suggestion: Add icon/image of person overcoming obstacle.
+================================================================================
+INLINE TAG RULES (UPDATED)
+================================================================================
+
+**Rule 1: Always use explicit closing tags for words/phrases you want styled**
+
+✅ CORRECT Examples:
+Content: The student [answer]completed[/answer] the task.
+Content: [question]Have you ever traveled abroad?[/question]
+Content: Use the [vocabulary]Present Perfect[/vocabulary] tense.
+Content: [emphasis]Never[/emphasis] forget the -ed ending.
+Left: [vocabulary]resilient[/vocabulary]
+Right: able to recover quickly from difficulties
+
+**Rule 2: Tags wrap the EXACT content to be styled**
+
+✅ Style one word:
+[answer]completed[/answer]
+
+✅ Style multiple words:
+[vocabulary]Present Perfect[/vocabulary]
+
+✅ Style entire question:
+[question]What is your favorite color?[/question]
+
+**Rule 3: Do NOT use open-only tags expecting multi-word capture**
+
+❌ WRONG:
+Content: [emphasis] This will not style the whole phrase
+
+✅ CORRECT:
+Content: [emphasis]This will style the whole phrase[/emphasis]
+
+**Rule 4: For [step] tags, no closing tag is needed**
+
+✅ CORRECT:
+Content: [step] First point
+Content: [step] Second point
+Content: [step] Third point
+
+**Rule 5: Never double-wrap or repeat tags**
+
+❌ WRONG:
+[emphasis][emphasis]word[/emphasis][/emphasis]
+[emphasis] word [emphasis]
+
+✅ CORRECT:
+[emphasis]word[/emphasis]
+
+================================================================================
+COMPLETE EXAMPLES BY USE CASE
+================================================================================
+
+**Example 1: Vocabulary Slide**
+```
+Slide 2
+Title: Key Business Vocabulary
+Left: [vocabulary]delegate[/vocabulary]
+Right: to give tasks or responsibilities to others
+Left: [vocabulary]prioritize[/vocabulary]
+Right: to arrange tasks by importance
+Left: [vocabulary]collaborate[/vocabulary]
+Right: to work together with others
+Notes: Drill pronunciation. Check understanding with example sentences.
+
+---
+```
+
+**Example 2: Grammar Explanation**
+```
+Slide 3
+Title: Past Simple - Negative Form
+LeftTop: [emphasis]STRUCTURE[/emphasis]
+LeftTop: Subject + did not + base verb
+RightTop: [emphasis]EXAMPLES[/emphasis]
+RightTop: • I [answer]did not go[/answer] to work yesterday.
+RightTop: • She [answer]didn't travel[/answer] last month.
+LeftBottom: [emphasis]CONTRACTIONS[/emphasis]
+LeftBottom: did not = didn't
+RightBottom: [emphasis]COMMON ERRORS[/emphasis]
+RightBottom: ❌ I didn't went
+RightBottom: ✅ I didn't go
+Notes: Emphasize the base form after 'didn't'. Practice with error correction.
+
+---
+```
+
+**Example 3: Discussion Questions**
+```
+Slide 4
+Title: Speaking Activity
+Content: [emphasis]Think-Pair-Share[/emphasis]
+Content: 
+Content: [question]Have you ever worked abroad?[/question]
+Content: [question]What challenges did you face?[/question]
+Content: [question]Would you do it again?[/question]
+Content: 
+Content: [step] Think individually (1 minute)
+Content: [step] Discuss with partner (3 minutes)
+Content: [step] Share with class (5 minutes)
+Notes: Monitor for accurate past tense usage. Encourage follow-up questions.
+
+---
+```
+
+**Example 4: Reading Comprehension**
+```
+Slide 5
+Title: Reading - Career Change
+LeftTop: Maria decided to change careers at age 35. She left her job in banking to become a teacher. It was difficult at first, but she felt happier. Now she helps young people learn English.
+LeftBottom: [question]What was Maria's previous job?[/question]
+LeftBottom: [question]How old was she when she changed careers?[/question]
+LeftBottom: [question]What does Maria teach now?[/question]
+Notes: Pre-teach: career change, banking, difficult. Read aloud, then students answer in pairs.
+
+---
+```
+
+================================================================================
+NOTES
+================================================================================
+- Always include Notes: at the end of each slide.
+- Include:
+  • Timing estimate (e.g., "5 minutes")
+  • Activity type (e.g., pair work, class discussion)
+  • Teaching tips, e.g., "Drill pronunciation", "Monitor accuracy"
+  • Optional: image or activity suggestions
+
+Example:
+Notes: Pair work 5 minutes. Encourage full sentences. Monitor for correct past tense.
 
 ================================================================================
 COMMON MISTAKES TO AVOID
 ================================================================================
-
-❌ Forgetting "Slide X" at the start
-❌ Missing "Title:" on any slide
-❌ Using wrong section names (e.g., "LeftSide:" instead of "Left:")
-❌ Too much text in four-box layouts (>150 chars per box)
-❌ Not using style tags ([vocabulary], [question], etc.)
-❌ Forgetting teacher notes
-❌ Mixing layouts incorrectly
-❌ Including image file references (handle in PowerPoint instead)
-❌ Trying to specify complex animations (use PowerPoint instead)
+❌ Missing "Slide X" or "Title:"
+❌ Mixing Left/Right with LeftTop/RightTop on the same slide
+❌ Forgetting Notes:
+❌ Including image filenames or PowerPoint animation settings
+❌ Using markdown symbols (#, **, -, etc.)
+❌ Writing too much text per box (keep it concise)
+❌ Using open-only tags like [emphasis] without closing them
+❌ Expecting [tag] word to style multiple words
 
 ================================================================================
-CONTENT GENERATION CHECKLIST
+OUTPUT STRUCTURE SUMMARY
 ================================================================================
-
-Before submitting content, verify:
-□ Every slide starts with "Slide X"
-□ Every slide has "Title: [text]"
-□ Appropriate layout chosen for content type
-□ [vocabulary] tags used for new terms
-□ [question] tags used for discussion prompts
-□ [emphasis] tags used for key points
-□ [step] tags used for sequential content (basic reveals only)
-□ Teacher notes included on every slide
-□ Content length appropriate (not too long)
-□ Slides separated with "---"
-□ 8-10 slides total per lesson
-□ NO image references (add those in PowerPoint later)
-□ NO complex animation specs (handle in PowerPoint)
+Slide 1 – Title + Objectives  
+Slide 2 – Lead-in Discussion  
+Slide 3 – Reading + Questions  
+Slide 4 – Vocabulary  
+Slide 5 – Grammar Explanation  
+Slide 6 – Controlled Practice  
+Slide 7 – Speaking/Production  
+Slide 8 – Recap + Homework  
 
 ================================================================================
-LEVEL-SPECIFIC GUIDELINES
+TAG USAGE SUMMARY
 ================================================================================
 
-A1-A2 (Beginner):
-- Simple vocabulary and short sentences
-- Note in teacher notes: "Add supportive images in PowerPoint"
-- 6-8 slides per lesson
+✅ DO:
+- Use explicit closing tags: [tag]content[/tag]
+- Wrap exact words/phrases you want styled
+- Use [step] without closing tag for animations
+- Put Notes: on every slide
 
-B1-B2 (Intermediate):
-- Moderate complexity vocabulary
-- Longer reading passages (150-200 words)
-- 8-10 slides per lesson
-
-C1-C2 (Advanced):
-- Advanced vocabulary and idioms
-- Complex texts (200-250 words)
-- 10-12 slides per lesson
+❌ DON'T:
+- Use open-only tags expecting multi-word capture
+- Forget closing tags
+- Double-wrap tags
+- Mix layout types on same slide
 
 ================================================================================
-OUTPUT FORMAT
+QUALITY CHECKLIST
 ================================================================================
+Before outputting your lesson, verify:
 
-Your output should be plain text starting with:
-
-# Lesson Name
-# Level: XX | Duration: XX minutes
-
-Then proceed with slides as shown in examples above.
+✅ Every slide starts with "Slide X"
+✅ Every slide has "Title:"
+✅ All inline tags have proper closing tags (except [step])
+✅ Every slide has "Notes:"
+✅ Slide separator "---" between slides
+✅ No markdown formatting (##, **, -, etc.)
+✅ Appropriate layout chosen for content type
+✅ Text length suitable for slide (not too long)
+✅ Grammar and vocabulary appropriate for stated level
+✅ Activities match stated duration
 
 ================================================================================
 END OF INSTRUCTIONS
 ================================================================================
+Start your output immediately with "Slide 1".
+Do not include any introductions, explanations, or commentary.
+Output ONLY the formatted lesson content.
+"""
+
+
+def get_system_instructions():
+    """
+    Return strict machine-readable instructions for the AI model.
+    Used internally when generating lessons automatically.
+    """
+    return """You are an expert English teacher creating formatted lesson slides
+for a PowerPoint generator. Output must follow this structure exactly.
+
+================================================================================
+OUTPUT RULES
+================================================================================
+
+1️⃣ Every slide begins with:
+Slide X
+Title: [your title]
+
+2️⃣ Use ONE layout per slide:
+   • Content: (single column)
+   • Left: / Right: (two columns)
+   • LeftTop:, RightTop:, LeftBottom:, RightBottom: (four boxes)
+
+3️⃣ Separate slides with ---
+4️⃣ Each slide MUST include:
+   - A Title
+   - At least one content section
+   - Notes: (teacher guidance)
+
+5️⃣ Do NOT include explanations, markdown, or image references.
+6️⃣ Use • for bullet points, not - or *.
+7️⃣ Keep titles under 60 characters.
+
+================================================================================
+STYLE TAGS
+================================================================================
+
+✅ Supported tags:
+[vocabulary]...[/vocabulary]   → new terms
+[question]...[/question]       → learner prompts
+[answer]...[/answer]           → model answers
+[emphasis]...[/emphasis]       → important points
+[step]                         → sequential reveal
+
+✅ Inline syntax is REQUIRED:
+Each tag must open and close around the exact word or phrase, e.g.:
+
+The student [answer]completed[/answer] the task.
+[question]Have you ever traveled abroad?[/question]
+He used the [vocabulary]Present Perfect[/vocabulary] tense.
+[emphasis]Never forget[/emphasis] to add the final -ed.
+
+❌ Do NOT leave tags unclosed like "[emphasis] word".
+❌ Do NOT repeat tags twice around the same word.
+
+✅ If unsure, always output them as closed tags [tag]word[/tag].
+
+
+================================================================================
+LAYOUT EXAMPLES
+================================================================================
+
+SINGLE COLUMN
+-------------
+Slide 1
+Title: Objectives
+Content: [emphasis]Lesson 1[/emphasis] — Past Simple
+Content: [step] Describe completed actions
+Content: [step] Talk about life experiences
+Notes: Review previous session. 5 mins.
+
+---
+
+TWO COLUMNS
+------------
+Slide 2
+Title: Vocabulary – Work Verbs
+Left: [vocabulary]manage[/vocabulary]
+Right: to be responsible for a team or project
+Left: [vocabulary]attend[/vocabulary]
+Right: to go to a meeting or event
+Notes: Check pronunciation. Ask for examples.
+
+---
+
+FOUR BOXES
+-----------
+Slide 3
+Title: Grammar – Past Simple
+LeftTop: [emphasis]FORM[/emphasis]
+LeftTop: Subject + Verb (-ed or irregular)
+RightTop: [emphasis]USE[/emphasis]
+RightTop: Finished actions in finished time
+LeftBottom: [emphasis]EXAMPLES[/emphasis]
+LeftBottom: I [answer]went[/answer] to France in 2018.
+RightBottom: [emphasis]TIME MARKERS[/emphasis]
+RightBottom: yesterday, last week, in 2010
+Notes: Clarify rule and give examples.
+
+================================================================================
+DO NOT INCLUDE
+================================================================================
+❌ Markdown (##, **, -, etc.)
+❌ Image or animation instructions
+❌ Mixing layout types
+❌ Empty slides
+
+================================================================================
+END
+================================================================================
+Start your output immediately with "Slide 1".
 """
 
 
@@ -1446,40 +1680,6 @@ def main():
     
     with tab3:
         show_help_section()
-def generate_lesson_with_ai(prompt, level, duration):
-    """Generate lesson content using AI"""
-    st.session_state.ai_generating = True
-    
-    try:
-        provider = st.session_state.ai_provider
-        api_key = st.session_state.ai_key
-        
-        with st.spinner(f"🤖 {provider} is generating your lesson..."):
-            if "Gemini" in provider:
-                content, error = generate_with_gemini(prompt, api_key, level, duration)
-            elif "OpenAI" in provider:
-                content, error = generate_with_openai(prompt, api_key, level, duration)
-            elif "Claude" in provider:
-                content, error = generate_with_claude(prompt, api_key, level, duration)
-            else:
-                content, error = None, "Unknown provider"
-            
-            if error:
-                st.error(f"❌ Generation failed: {error}")
-                st.info("💡 Tip: Try rephrasing your prompt or check your API key")
-            elif content:
-                st.session_state.content = content
-                st.success("✅ Lesson generated! Content loaded into editor below.")
-                st.info("👀 Review the content and click 'Generate PowerPoint' when ready")
-                st.rerun()
-            else:
-                st.error("❌ No content generated. Please try again.")
-    
-    except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
-    
-    finally:
-        st.session_state.ai_generating = False
 
 
 if __name__ == "__main__":

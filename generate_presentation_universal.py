@@ -16,6 +16,302 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 
 
+class FlexibleLayoutEngine:
+    """
+    Intelligently stacks multiple layout sections on a single slide.
+    
+    Supports:
+    - Content (single column text)
+    - Left/Right (two columns)
+    - LeftTop/RightTop/LeftBottom/RightBottom (four boxes)
+    - Any combination of the above!
+    """
+    
+    def __init__(self, slide_data, dimensions):
+        """
+        Args:
+            slide_data: Dict with keys: content, left, right, left_top, etc.
+            dimensions: Dict with CONTENT_LEFT, CONTENT_TOP, CONTENT_WIDTH, CONTENT_HEIGHT, etc.
+        """
+        self.data = slide_data
+        self.dims = dimensions
+        self.sections = []  # List of (type, priority, height_weight)
+        
+    def analyze_sections(self):
+        """
+        Detect which sections are present and determine layout strategy.
+        
+        Returns list of sections in order: [(section_type, data), ...]
+        """
+        sections = []
+        
+        # Check for Content section (header/intro text)
+        if self.data.get("content"):
+            sections.append({
+                'type': 'content',
+                'data': self.data["content"],
+                'priority': 1,  # Content usually goes first
+                'height_weight': 0.3  # Takes 30% of space by default
+            })
+        
+        # Check for four-box section
+        has_four_box = any([
+            self.data.get("left_top"),
+            self.data.get("right_top"),
+            self.data.get("left_bottom"),
+            self.data.get("right_bottom")
+        ])
+        
+        if has_four_box:
+            sections.append({
+                'type': 'four_box',
+                'data': {
+                    'left_top': self.data.get("left_top", []),
+                    'right_top': self.data.get("right_top", []),
+                    'left_bottom': self.data.get("left_bottom", []),
+                    'right_bottom': self.data.get("right_bottom", [])
+                },
+                'priority': 2,  # Main content section
+                'height_weight': 0.7  # Takes 70% of space
+            })
+        
+        # Check for two-column section
+        elif self.data.get("left") or self.data.get("right"):
+            sections.append({
+                'type': 'two_column',
+                'data': {
+                    'left': self.data.get("left", []),
+                    'right': self.data.get("right", [])
+                },
+                'priority': 2,
+                'height_weight': 0.7
+            })
+        
+        # Special case: Reading comprehension layout
+        # (LeftTop = passage, LeftBottom = questions, no RightTop/RightBottom)
+        if (self.data.get("left_top") and self.data.get("left_bottom") and 
+            not self.data.get("right_top") and not self.data.get("right_bottom")):
+            sections = [{
+                'type': 'reading',
+                'data': {
+                    'passage': self.data["left_top"],
+                    'questions': self.data["left_bottom"]
+                },
+                'priority': 1,
+                'height_weight': 1.0  # Takes full height
+            }]
+        
+        return sections
+    
+    def calculate_section_positions(self, sections, total_height):
+        """
+        Calculate top position and height for each section.
+        
+        Args:
+            sections: List of section dicts
+            total_height: Total available height (Inches)
+            
+        Returns:
+            List of (section, top, height) tuples
+        """
+        if not sections:
+            return []
+        
+        # Special case: Single section gets full height
+        if len(sections) == 1:
+            return [(sections[0], self.dims['CONTENT_TOP'], total_height)]
+        
+        # Multiple sections: Distribute height based on weights
+        total_weight = sum(s['height_weight'] for s in sections)
+        gap = Inches(0.3)  # Gap between sections
+        total_gap = gap * (len(sections) - 1)
+        usable_height = total_height - total_gap
+        
+        positions = []
+        current_top = self.dims['CONTENT_TOP']
+        
+        for section in sections:
+            # Calculate this section's height
+            weight_ratio = section['height_weight'] / total_weight
+            section_height = usable_height * weight_ratio
+            
+            positions.append((section, current_top, section_height))
+            current_top += section_height + gap
+        
+        return positions
+    
+    def render_content_section(self, slide, top, height, data, config, add_textbox_func):
+        """Render a single-column content section"""
+        font_size = 22 if height > Inches(2) else 18
+        add_textbox_func(
+            slide, 
+            self.dims['CONTENT_LEFT'], 
+            top,
+            self.dims['CONTENT_WIDTH'], 
+            height, 
+            data,
+            font_size=font_size,
+            label="Content",
+            config=config
+        )
+    
+    def render_two_column_section(self, slide, top, height, data, config, add_textbox_func):
+        """Render a two-column section"""
+        font_size = 20 if height > Inches(2) else 16
+        
+        add_textbox_func(
+            slide,
+            self.dims['CONTENT_LEFT'],
+            top,
+            self.dims['COLUMN_WIDTH'],
+            height,
+            data['left'],
+            font_size=font_size,
+            label="Left",
+            config=config
+        )
+        
+        add_textbox_func(
+            slide,
+            self.dims['CONTENT_LEFT'] + self.dims['COLUMN_WIDTH'] + self.dims['COLUMN_GAP'],
+            top,
+            self.dims['COLUMN_WIDTH'],
+            height,
+            data['right'],
+            font_size=font_size,
+            label="Right",
+            config=config
+        )
+    
+    def render_four_box_section(self, slide, top, height, data, config, add_textbox_func):
+        """Render a four-box section"""
+        half_height = (height - self.dims['ROW_GAP']) / 2
+        font_size = 18 if height > Inches(3) else 14
+        
+        # Top row
+        add_textbox_func(
+            slide,
+            self.dims['CONTENT_LEFT'],
+            top,
+            self.dims['COLUMN_WIDTH'],
+            half_height,
+            data['left_top'],
+            font_size=font_size,
+            label="LeftTop",
+            config=config
+        )
+        
+        add_textbox_func(
+            slide,
+            self.dims['CONTENT_LEFT'] + self.dims['COLUMN_WIDTH'] + self.dims['COLUMN_GAP'],
+            top,
+            self.dims['COLUMN_WIDTH'],
+            half_height,
+            data['right_top'],
+            font_size=font_size,
+            label="RightTop",
+            config=config
+        )
+        
+        # Bottom row
+        add_textbox_func(
+            slide,
+            self.dims['CONTENT_LEFT'],
+            top + half_height + self.dims['ROW_GAP'],
+            self.dims['COLUMN_WIDTH'],
+            half_height,
+            data['left_bottom'],
+            font_size=font_size,
+            label="LeftBottom",
+            config=config
+        )
+        
+        add_textbox_func(
+            slide,
+            self.dims['CONTENT_LEFT'] + self.dims['COLUMN_WIDTH'] + self.dims['COLUMN_GAP'],
+            top + half_height + self.dims['ROW_GAP'],
+            self.dims['COLUMN_WIDTH'],
+            half_height,
+            data['right_bottom'],
+            font_size=font_size,
+            label="RightBottom",
+            config=config
+        )
+    
+    def render_reading_section(self, slide, top, height, data, config, add_textbox_func):
+        """Render a reading comprehension section"""
+        passage_height = height * 0.65
+        gap = Inches(0.3)
+        questions_height = height * 0.35 - gap
+        
+        add_textbox_func(
+            slide,
+            self.dims['CONTENT_LEFT'],
+            top,
+            self.dims['CONTENT_WIDTH'],
+            passage_height,
+            data['passage'],
+            font_size=18,
+            label="ReadingPassage",
+            config=config
+        )
+        
+        add_textbox_func(
+            slide,
+            self.dims['CONTENT_LEFT'],
+            top + passage_height + gap,
+            self.dims['CONTENT_WIDTH'],
+            questions_height,
+            data['questions'],
+            font_size=16,
+            label="ReadingQuestions",
+            config=config
+        )
+    
+    def render(self, slide, config, add_textbox_func):
+        """
+        Main rendering function.
+        
+        Args:
+            slide: python-pptx slide object
+            config: Configuration dict
+            add_textbox_func: Function to add textboxes
+        """
+        sections = self.analyze_sections()
+        
+        if not sections:
+            # Empty slide - just title
+            return
+        
+        # Calculate positions
+        positions = self.calculate_section_positions(
+            sections, 
+            self.dims['CONTENT_HEIGHT']
+        )
+        
+        # Render each section
+        for section, top, height in positions:
+            section_type = section['type']
+            section_data = section['data']
+            
+            if section_type == 'content':
+                self.render_content_section(
+                    slide, top, height, section_data, config, add_textbox_func
+                )
+            elif section_type == 'two_column':
+                self.render_two_column_section(
+                    slide, top, height, section_data, config, add_textbox_func
+                )
+            elif section_type == 'four_box':
+                self.render_four_box_section(
+                    slide, top, height, section_data, config, add_textbox_func
+                )
+            elif section_type == 'reading':
+                self.render_reading_section(
+                    slide, top, height, section_data, config, add_textbox_func
+                )
+
+
 # === DEFAULT CONFIG ===
 DEFAULT_CONFIG = {
     "background_image": None,  # Can be None for solid color
@@ -84,14 +380,14 @@ def is_list_content(lines):
     if not lines:
         return False
     
-    bullet_patterns = [r'^\s*[•\-\*]', r'^\s*\d+\.', r'^\s*[a-z]\)', r'^\s*[A-Z]\.']
+    bullet_patterns = [r'^\s*[â€¢\-\*]', r'^\s*\d+\.', r'^\s*[a-z]\)', r'^\s*[A-Z]\.']
     matching = sum(1 for line in lines if any(re.match(p, line) for p in bullet_patterns))
     return matching >= len(lines) * 0.5
 
 
 def clean_bullet_marker(text):
     """Remove common bullet markers from text"""
-    text = re.sub(r'^\s*[•\-\*]\s*', '', text)
+    text = re.sub(r'^\s*[â€¢\-\*]\s*', '', text)
     text = re.sub(r'^\s*\d+\.\s*', '', text)
     text = re.sub(r'^\s*[a-z]\)\s*', '', text)
     return text
@@ -141,18 +437,18 @@ def parse_styled_text(text):
 # === MATH/SPECIAL CHARACTERS ===
 def process_math(text):
     """Convert simple math notation to Unicode symbols"""
-    superscripts = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', 
-                    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'}
+    superscripts = {'0': 'â°', '1': 'Â¹', '2': 'Â²', '3': 'Â³', '4': 'â´', 
+                    '5': 'âµ', '6': 'â¶', '7': 'â·', '8': 'â¸', '9': 'â¹'}
     text = re.sub(r'\^(\d)', lambda m: superscripts.get(m.group(1), m.group(1)), text)
     
-    subscripts = {'0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
-                  '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'}
+    subscripts = {'0': 'â‚€', '1': 'â‚', '2': 'â‚‚', '3': 'â‚ƒ', '4': 'â‚„',
+                  '5': 'â‚…', '6': 'â‚†', '7': 'â‚‡', '8': 'â‚ˆ', '9': 'â‚‰'}
     text = re.sub(r'_(\d)', lambda m: subscripts.get(m.group(1), m.group(1)), text)
     
     replacements = {
-        '<=': '≤', '>=': '≥', '!=': '≠', '~=': '≈',
-        'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ',
-        'pi': 'π', 'theta': 'θ', 'sigma': 'σ'
+        '<=': 'â‰¤', '>=': 'â‰¥', '!=': 'â‰ ', '~=': 'â‰ˆ',
+        'alpha': 'Î±', 'beta': 'Î²', 'gamma': 'Î³', 'delta': 'Î´',
+        'pi': 'Ï€', 'theta': 'Î¸', 'sigma': 'Ïƒ'
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
@@ -203,7 +499,7 @@ def add_textbox(slide, left, top, width, height, lines, font_size=22, label=None
             h = height.inches if hasattr(height, 'inches') else height
             overflow, needed, available = check_text_overflow(joined, font_size, w, h)
             if overflow:
-                print(f"⚠️  Potential overflow in '{label}': needs {needed} lines, has {available}")
+                print(f"âš ï¸  Potential overflow in '{label}': needs {needed} lines, has {available}")
         except Exception:
             pass
     
@@ -456,52 +752,19 @@ def build_presentation(slides, output_name, config=None):
         p.font.bold = True
         p.font.color.rgb = RGBColor(*config["title_color"])
         
-        # Layout logic
-        if s["left_top"] and s["left_bottom"] and not (s["right_top"] or s["right_bottom"]):
-            # Reading slide
-            reading_height = CONTENT_HEIGHT * 0.65
-            questions_height = CONTENT_HEIGHT * 0.35 - ROW_GAP
-            
-            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP,
-                       CONTENT_WIDTH, reading_height, s["left_top"], 
-                       label="ReadingText", config=config, v_align=MSO_ANCHOR.TOP)
-            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP + reading_height + ROW_GAP,
-                       CONTENT_WIDTH, questions_height, s["left_bottom"], 
-                       label="ReadingQuestions", config=config, v_align=MSO_ANCHOR.TOP)
+        # Flexible Layout Logic - Handles ANY combination
+        dimensions = {
+            'CONTENT_LEFT': CONTENT_LEFT,
+            'CONTENT_TOP': CONTENT_TOP,
+            'CONTENT_WIDTH': CONTENT_WIDTH,
+            'CONTENT_HEIGHT': CONTENT_HEIGHT,
+            'COLUMN_WIDTH': COLUMN_WIDTH,
+            'COLUMN_GAP': COLUMN_GAP,
+            'ROW_GAP': ROW_GAP
+        }
         
-        elif any([s["left_top"], s["right_top"], s["left_bottom"], s["right_bottom"]]):
-            # 4-box slide
-            half_height = (CONTENT_HEIGHT - ROW_GAP) / 2
-            box_font_size = 18
-            
-            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP,
-                       COLUMN_WIDTH, half_height, s["left_top"], 
-                       font_size=box_font_size, label="LeftTop", config=config)
-            add_textbox(slide, CONTENT_LEFT + COLUMN_WIDTH + COLUMN_GAP, CONTENT_TOP,
-                       COLUMN_WIDTH, half_height, s["right_top"], 
-                       font_size=box_font_size, label="RightTop", config=config)
-            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP + half_height + ROW_GAP,
-                       COLUMN_WIDTH, half_height, s["left_bottom"], 
-                       font_size=box_font_size, label="LeftBottom", config=config)
-            add_textbox(slide, CONTENT_LEFT + COLUMN_WIDTH + COLUMN_GAP,
-                       CONTENT_TOP + half_height + ROW_GAP,
-                       COLUMN_WIDTH, half_height, s["right_bottom"], 
-                       font_size=box_font_size, label="RightBottom", config=config)
-        
-        elif s["left"] or s["right"]:
-            # Two-column layout
-            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP,
-                       COLUMN_WIDTH, CONTENT_HEIGHT, s["left"], 
-                       label="Left", config=config)
-            add_textbox(slide, CONTENT_LEFT + COLUMN_WIDTH + COLUMN_GAP, CONTENT_TOP,
-                       COLUMN_WIDTH, CONTENT_HEIGHT, s["right"], 
-                       label="Right", config=config)
-        
-        else:
-            # Single-column content
-            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP,
-                       CONTENT_WIDTH, CONTENT_HEIGHT, s["content"], 
-                       label="Content", config=config)
+        layout_engine = FlexibleLayoutEngine(s, dimensions)
+        layout_engine.render(slide, config, add_textbox)
         
         # Add slide numbers
         if config.get("enable_slide_numbers", True):
@@ -512,10 +775,10 @@ def build_presentation(slides, output_name, config=None):
             notes_slide = slide.notes_slide
             notes_tf = notes_slide.notes_text_frame
             for note in s["notes"]:
-                notes_tf.add_paragraph().text = f"• {note}"
+                notes_tf.add_paragraph().text = f"â€¢ {note}"
     
     prs.save(output_name)
-    print(f"✅ Presentation created: {output_name}")
+    print(f"âœ… Presentation created: {output_name}")
 
 
 # === MAIN ===
