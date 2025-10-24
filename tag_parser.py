@@ -12,12 +12,15 @@ def normalize_tags(text):
     Convert ALL tag formats to the standard closed-tag format: [tag]content[/tag]
     
     Handles:
-    1. Open-only tags: [emphasis] word → [emphasis]word...[/emphasis]
-    2. Tags with spaces: [emphasis] content [/emphasis] → [emphasis]content[/emphasis]
-    3. Already-closed tags: [emphasis]word[/emphasis] → unchanged
+    1. Already-valid pairs: [emphasis]word[/emphasis] → unchanged
+    2. Unclosed opening tags: [emphasis] word → [emphasis]word[/emphasis]
+    3. Orphan closing tags: word[/emphasis] → word (removed)
     4. Step tags: [step] content → content (removed entirely)
     
-    This function matches the behavior of clean_ai_output() in ai_content_generator.py
+    Approach:
+    - Find all valid [tag]...[/tag] pairs and protect them
+    - Remove orphan closing tags
+    - Close unclosed opening tags
     """
     # Clean up whitespace
     text = re.sub(r'\s+', ' ', text.strip())
@@ -25,30 +28,60 @@ def normalize_tags(text):
     # Handle [step] tags - remove them entirely
     text = re.sub(r'\[step\]\s*', '', text, flags=re.IGNORECASE)
     
-    # TWO-PASS TAG NORMALIZATION (matches ai_content_generator.py)
+    result = text
     
-    # Pass 1: Remove extra spaces inside tags: [tag] content [/tag] → [tag]content[/tag]
     for tag in ['vocabulary', 'question', 'answer', 'emphasis']:
-        text = re.sub(rf'\[{tag}\]\s+', rf'[{tag}]', text, flags=re.IGNORECASE)
-        text = re.sub(rf'\s+\[/{tag}\]', rf'[/{tag}]', text, flags=re.IGNORECASE)
-    
-    # Pass 2: Close unclosed tags
-    # Capture everything until end of string or next tag/marker
-    for tag in ['vocabulary', 'question', 'answer', 'emphasis']:
-        # Match [tag] followed by content, but not already closed
-        # Capture until: end of string, newline, or another opening tag
-        pattern = rf'\[{tag}\]([^\[\]]+?)(?=$|\n|\[(?:vocabulary|question|answer|emphasis|step|/{tag}))'
+        # Step 1: Find all VALID pairs [tag]...[/tag] and note their positions
+        valid_pairs = []
+        pattern = rf'\[{tag}\](.*?)\[/{tag}\]'
+        for match in re.finditer(pattern, result, re.IGNORECASE):
+            valid_pairs.append((match.start(), match.end()))
         
-        def replace_func(match):
-            content = match.group(1).strip()
-            # Check if already has closing tag
-            if not content.endswith(f'[/{tag}]'):
-                return f'[{tag}]{content}[/{tag}]'
-            return match.group(0)
+        # Step 2: Find all orphan closing tags (not part of valid pairs)
+        orphan_closings = []
+        for match in re.finditer(rf'\[/{tag}\]', result, re.IGNORECASE):
+            # Check if this closing tag is part of a valid pair
+            is_valid = any(start < match.start() < end for start, end in valid_pairs)
+            if not is_valid:
+                orphan_closings.append((match.start(), match.end()))
         
-        text = re.sub(pattern, replace_func, text, flags=re.IGNORECASE)
+        # Remove orphan closings (from end to start to preserve indices)
+        for start, end in sorted(orphan_closings, reverse=True):
+            result = result[:start] + result[end:]
+        
+        # Step 3: Find unclosed opening tags and close them
+        # Re-scan after removing orphans
+        valid_pairs = []
+        pattern = rf'\[{tag}\](.*?)\[/{tag}\]'
+        for match in re.finditer(pattern, result, re.IGNORECASE):
+            valid_pairs.append((match.start(), match.end()))
+        
+        # Find opening tags not in valid pairs
+        unclosed_opens = []
+        for match in re.finditer(rf'\[{tag}\]', result, re.IGNORECASE):
+            # Check if this opening tag is part of a valid pair
+            is_valid = any(start <= match.start() < end for start, end in valid_pairs)
+            if not is_valid:
+                unclosed_opens.append(match.end())
+        
+        # Close unclosed tags (from end to start)
+        for pos in sorted(unclosed_opens, reverse=True):
+            # Find where to insert closing tag (end of line or next [)
+            insert_pos = pos
+            rest = result[pos:]
+            # Find next newline or opening bracket
+            next_boundary = len(rest)
+            if '\n' in rest:
+                next_boundary = min(next_boundary, rest.index('\n'))
+            if '[' in rest:
+                bracket_pos = rest.index('[')
+                if bracket_pos < next_boundary:
+                    next_boundary = bracket_pos
+            
+            insert_pos = pos + next_boundary
+            result = result[:insert_pos] + f'[/{tag}]' + result[insert_pos:]
     
-    return text
+    return result
 
 
 def parse_inline_tags(text):

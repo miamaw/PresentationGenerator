@@ -1866,6 +1866,72 @@ def show_help_section():
             - ✅ 100% reliable with Gemini
             """)
         
+                
+        st.markdown("### 📝 Sample AI Prompts")
+        st.info("Copy these examples and adapt them for your lessons!")
+        
+        with st.expander("🗣️ Conversation Practice Lesson"):
+            st.code("""I need to create an English lesson using the PowerPoint Generator format.
+
+[Attach or paste the appropriate AI instruction file]
+
+Please create a lesson with these specifications:
+- Topic: Conversation practice - Making small talk at networking events
+- Level: B1 (Intermediate)
+- Duration: 60 minutes
+- Focus: Ice breakers, follow-up questions, showing interest
+- Include: Vocabulary, example dialogues, practice activities
+- 8-10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
+        
+        with st.expander("💼 Business English Lesson"):
+            st.code("""I need to create an English lesson using the PowerPoint Generator format.
+
+[Attach or paste the appropriate AI instruction file]
+
+Please create a lesson with these specifications:
+- Topic: Writing professional emails - Making requests
+- Level: B2 (Upper Intermediate)  
+- Duration: 60 minutes
+- Focus: Formal language, polite requests, appropriate tone
+- Include: Email structure, key phrases, practice writing activity
+- 8-10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
+        
+        with st.expander("📰 News Article Lesson"):
+            st.code("""I need to create an English lesson using the PowerPoint Generator format.
+
+[Attach or paste the appropriate AI instruction file]
+
+Please create a lesson based on this news article:
+[Paste the article text or URL]
+
+Specifications:
+- Level: B1 (Intermediate)
+- Duration: 60 minutes
+- Include: Simplified reading passage (200 words), comprehension questions, vocabulary, discussion
+- 8-10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
+        
+        with st.expander("📚 Grammar Focus Lesson"):
+            st.code("""I need to create an English lesson using the PowerPoint Generator format.
+
+[Attach or paste the appropriate AI instruction file]
+
+Please create a lesson with these specifications:
+- Topic: Present Continuous tense
+- Level: B1 (Intermediate)
+- Duration: 60 minutes
+- Focus: Form, usage (actions now + temporary situations), practice
+- Include: Clear explanations, examples, controlled practice, freer practice
+- 8-10 slides following the structure in the instructions
+
+Generate the complete content file in the exact format specified.""", language="text")
+        
+
         st.markdown("---")
         
         # Quick reference
