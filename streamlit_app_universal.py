@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Universal PowerPoint Generator - Web App
 =========================================
@@ -552,28 +550,45 @@ def show_editor():
                 slides = parse_slides_for_preview(st.session_state.content)
                 
                 if slides:
-                    # Slide selector
+                    # Ensure selected_slide is within bounds
+                    if st.session_state.selected_slide >= len(slides):
+                        st.session_state.selected_slide = len(slides) - 1
+                    if st.session_state.selected_slide < 0:
+                        st.session_state.selected_slide = 0
+                    
+                    # Use the session state value directly
+                    current_slide = st.session_state.selected_slide
+                    
+                    # Slide selector - use on_change callback
                     slide_options = [f"Slide {i+1}: {s['title'][:30] if s['title'] else 'Untitled'}" 
                                    for i, s in enumerate(slides)]
                     
-                    selected = st.selectbox(
+                    def update_slide_from_dropdown():
+                        st.session_state.selected_slide = st.session_state.slide_selector_widget
+                    
+                    st.selectbox(
                         "Select slide to preview:",
                         range(len(slides)),
-                        format_func=lambda x: slide_options[x]
+                        index=current_slide,
+                        format_func=lambda x: slide_options[x],
+                        key="slide_selector_widget",
+                        on_change=update_slide_from_dropdown
                     )
                     
-                    # Show preview
-                    show_slide_preview(slides[selected], selected + 1, st.session_state.custom_config)
+                    # Show preview using current_slide
+                    show_slide_preview(slides[current_slide], current_slide + 1, st.session_state.custom_config)
                     
-                    # Navigation
+                    # Navigation buttons
                     nav_col1, nav_col2, nav_col3 = st.columns([1, 1, 1])
                     with nav_col1:
-                        if selected > 0:
-                            if st.button("⬅️ Previous"):
+                        if current_slide > 0:
+                            if st.button("⬅️ Previous", key="prev_btn"):
+                                st.session_state.selected_slide = current_slide - 1
                                 st.rerun()
                     with nav_col3:
-                        if selected < len(slides) - 1:
-                            if st.button("Next ➡️"):
+                        if current_slide < len(slides) - 1:
+                            if st.button("Next ➡️", key="next_btn"):
+                                st.session_state.selected_slide = current_slide + 1
                                 st.rerun()
                     
                     st.info(f"📊 Total slides: {len(slides)}")
@@ -620,6 +635,7 @@ def show_editor():
     if clear_button:
         st.session_state.content = ""
         st.session_state.validation_results = None
+        st.session_state.selected_slide = 0
         st.rerun()
     
     # Show validation results
@@ -1215,6 +1231,8 @@ def main():
         st.session_state.custom_config = DEFAULT_CONFIG.copy()
     if 'background_file' not in st.session_state:
         st.session_state.background_file = None
+    if 'selected_slide' not in st.session_state:
+        st.session_state.selected_slide = 0
     
     # Sidebar with customization
     with st.sidebar:

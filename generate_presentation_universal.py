@@ -3,6 +3,7 @@ Universal PowerPoint Generator
 ================================
 Generic, customizable presentation generator for educators
 No branding - fully customizable fonts, colors, and backgrounds
+WITH ANIMATION SUPPORT
 """
 
 import sys
@@ -14,302 +15,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
-
-
-class FlexibleLayoutEngine:
-    """
-    Intelligently stacks multiple layout sections on a single slide.
-    
-    Supports:
-    - Content (single column text)
-    - Left/Right (two columns)
-    - LeftTop/RightTop/LeftBottom/RightBottom (four boxes)
-    - Any combination of the above!
-    """
-    
-    def __init__(self, slide_data, dimensions):
-        """
-        Args:
-            slide_data: Dict with keys: content, left, right, left_top, etc.
-            dimensions: Dict with CONTENT_LEFT, CONTENT_TOP, CONTENT_WIDTH, CONTENT_HEIGHT, etc.
-        """
-        self.data = slide_data
-        self.dims = dimensions
-        self.sections = []  # List of (type, priority, height_weight)
-        
-    def analyze_sections(self):
-        """
-        Detect which sections are present and determine layout strategy.
-        
-        Returns list of sections in order: [(section_type, data), ...]
-        """
-        sections = []
-        
-        # Check for Content section (header/intro text)
-        if self.data.get("content"):
-            sections.append({
-                'type': 'content',
-                'data': self.data["content"],
-                'priority': 1,  # Content usually goes first
-                'height_weight': 0.3  # Takes 30% of space by default
-            })
-        
-        # Check for four-box section
-        has_four_box = any([
-            self.data.get("left_top"),
-            self.data.get("right_top"),
-            self.data.get("left_bottom"),
-            self.data.get("right_bottom")
-        ])
-        
-        if has_four_box:
-            sections.append({
-                'type': 'four_box',
-                'data': {
-                    'left_top': self.data.get("left_top", []),
-                    'right_top': self.data.get("right_top", []),
-                    'left_bottom': self.data.get("left_bottom", []),
-                    'right_bottom': self.data.get("right_bottom", [])
-                },
-                'priority': 2,  # Main content section
-                'height_weight': 0.7  # Takes 70% of space
-            })
-        
-        # Check for two-column section
-        elif self.data.get("left") or self.data.get("right"):
-            sections.append({
-                'type': 'two_column',
-                'data': {
-                    'left': self.data.get("left", []),
-                    'right': self.data.get("right", [])
-                },
-                'priority': 2,
-                'height_weight': 0.7
-            })
-        
-        # Special case: Reading comprehension layout
-        # (LeftTop = passage, LeftBottom = questions, no RightTop/RightBottom)
-        if (self.data.get("left_top") and self.data.get("left_bottom") and 
-            not self.data.get("right_top") and not self.data.get("right_bottom")):
-            sections = [{
-                'type': 'reading',
-                'data': {
-                    'passage': self.data["left_top"],
-                    'questions': self.data["left_bottom"]
-                },
-                'priority': 1,
-                'height_weight': 1.0  # Takes full height
-            }]
-        
-        return sections
-    
-    def calculate_section_positions(self, sections, total_height):
-        """
-        Calculate top position and height for each section.
-        
-        Args:
-            sections: List of section dicts
-            total_height: Total available height (Inches)
-            
-        Returns:
-            List of (section, top, height) tuples
-        """
-        if not sections:
-            return []
-        
-        # Special case: Single section gets full height
-        if len(sections) == 1:
-            return [(sections[0], self.dims['CONTENT_TOP'], total_height)]
-        
-        # Multiple sections: Distribute height based on weights
-        total_weight = sum(s['height_weight'] for s in sections)
-        gap = Inches(0.3)  # Gap between sections
-        total_gap = gap * (len(sections) - 1)
-        usable_height = total_height - total_gap
-        
-        positions = []
-        current_top = self.dims['CONTENT_TOP']
-        
-        for section in sections:
-            # Calculate this section's height
-            weight_ratio = section['height_weight'] / total_weight
-            section_height = usable_height * weight_ratio
-            
-            positions.append((section, current_top, section_height))
-            current_top += section_height + gap
-        
-        return positions
-    
-    def render_content_section(self, slide, top, height, data, config, add_textbox_func):
-        """Render a single-column content section"""
-        font_size = 22 if height > Inches(2) else 18
-        add_textbox_func(
-            slide, 
-            self.dims['CONTENT_LEFT'], 
-            top,
-            self.dims['CONTENT_WIDTH'], 
-            height, 
-            data,
-            font_size=font_size,
-            label="Content",
-            config=config
-        )
-    
-    def render_two_column_section(self, slide, top, height, data, config, add_textbox_func):
-        """Render a two-column section"""
-        font_size = 20 if height > Inches(2) else 16
-        
-        add_textbox_func(
-            slide,
-            self.dims['CONTENT_LEFT'],
-            top,
-            self.dims['COLUMN_WIDTH'],
-            height,
-            data['left'],
-            font_size=font_size,
-            label="Left",
-            config=config
-        )
-        
-        add_textbox_func(
-            slide,
-            self.dims['CONTENT_LEFT'] + self.dims['COLUMN_WIDTH'] + self.dims['COLUMN_GAP'],
-            top,
-            self.dims['COLUMN_WIDTH'],
-            height,
-            data['right'],
-            font_size=font_size,
-            label="Right",
-            config=config
-        )
-    
-    def render_four_box_section(self, slide, top, height, data, config, add_textbox_func):
-        """Render a four-box section"""
-        half_height = (height - self.dims['ROW_GAP']) / 2
-        font_size = 18 if height > Inches(3) else 14
-        
-        # Top row
-        add_textbox_func(
-            slide,
-            self.dims['CONTENT_LEFT'],
-            top,
-            self.dims['COLUMN_WIDTH'],
-            half_height,
-            data['left_top'],
-            font_size=font_size,
-            label="LeftTop",
-            config=config
-        )
-        
-        add_textbox_func(
-            slide,
-            self.dims['CONTENT_LEFT'] + self.dims['COLUMN_WIDTH'] + self.dims['COLUMN_GAP'],
-            top,
-            self.dims['COLUMN_WIDTH'],
-            half_height,
-            data['right_top'],
-            font_size=font_size,
-            label="RightTop",
-            config=config
-        )
-        
-        # Bottom row
-        add_textbox_func(
-            slide,
-            self.dims['CONTENT_LEFT'],
-            top + half_height + self.dims['ROW_GAP'],
-            self.dims['COLUMN_WIDTH'],
-            half_height,
-            data['left_bottom'],
-            font_size=font_size,
-            label="LeftBottom",
-            config=config
-        )
-        
-        add_textbox_func(
-            slide,
-            self.dims['CONTENT_LEFT'] + self.dims['COLUMN_WIDTH'] + self.dims['COLUMN_GAP'],
-            top + half_height + self.dims['ROW_GAP'],
-            self.dims['COLUMN_WIDTH'],
-            half_height,
-            data['right_bottom'],
-            font_size=font_size,
-            label="RightBottom",
-            config=config
-        )
-    
-    def render_reading_section(self, slide, top, height, data, config, add_textbox_func):
-        """Render a reading comprehension section"""
-        passage_height = height * 0.65
-        gap = Inches(0.3)
-        questions_height = height * 0.35 - gap
-        
-        add_textbox_func(
-            slide,
-            self.dims['CONTENT_LEFT'],
-            top,
-            self.dims['CONTENT_WIDTH'],
-            passage_height,
-            data['passage'],
-            font_size=18,
-            label="ReadingPassage",
-            config=config
-        )
-        
-        add_textbox_func(
-            slide,
-            self.dims['CONTENT_LEFT'],
-            top + passage_height + gap,
-            self.dims['CONTENT_WIDTH'],
-            questions_height,
-            data['questions'],
-            font_size=16,
-            label="ReadingQuestions",
-            config=config
-        )
-    
-    def render(self, slide, config, add_textbox_func):
-        """
-        Main rendering function.
-        
-        Args:
-            slide: python-pptx slide object
-            config: Configuration dict
-            add_textbox_func: Function to add textboxes
-        """
-        sections = self.analyze_sections()
-        
-        if not sections:
-            # Empty slide - just title
-            return
-        
-        # Calculate positions
-        positions = self.calculate_section_positions(
-            sections, 
-            self.dims['CONTENT_HEIGHT']
-        )
-        
-        # Render each section
-        for section, top, height in positions:
-            section_type = section['type']
-            section_data = section['data']
-            
-            if section_type == 'content':
-                self.render_content_section(
-                    slide, top, height, section_data, config, add_textbox_func
-                )
-            elif section_type == 'two_column':
-                self.render_two_column_section(
-                    slide, top, height, section_data, config, add_textbox_func
-                )
-            elif section_type == 'four_box':
-                self.render_four_box_section(
-                    slide, top, height, section_data, config, add_textbox_func
-                )
-            elif section_type == 'reading':
-                self.render_reading_section(
-                    slide, top, height, section_data, config, add_textbox_func
-                )
+from lxml import etree
 
 
 # === DEFAULT CONFIG ===
@@ -324,6 +30,7 @@ DEFAULT_CONFIG = {
     "slide_height": 7.5,
     "enable_slide_numbers": True,
     "enable_overflow_warnings": True,
+    "enable_animations": True,  # NEW: Enable/disable animations
     "styles": {
         "vocabulary": {"font_size": 24, "color": [0, 128, 0], "bold": True},
         "question": {"font_size": 20, "color": [128, 0, 128], "bold": False},
@@ -342,6 +49,209 @@ def merge_config(user_config, defaults=DEFAULT_CONFIG):
         if "styles" in user_config:
             config["styles"] = {**defaults["styles"], **user_config["styles"]}
     return config
+
+
+# === ANIMATION FUNCTIONS ===
+def add_appear_animation(slide, shape, delay_seconds=0):
+    """
+    Add an 'Appear' animation to a shape that triggers on click
+    
+    Args:
+        slide: The slide object
+        shape: The shape to animate
+        delay_seconds: Delay before animation starts (in seconds)
+    """
+    try:
+        # Get the slide's XML
+        slide_xml = slide.element
+        
+        # Find or create the timing element
+        timing = slide_xml.find('.//{http://schemas.openxmlformats.org/presentationml/2006/main}timing')
+        if timing is None:
+            timing = etree.SubElement(
+                slide_xml,
+                '{http://schemas.openxmlformats.org/presentationml/2006/main}timing'
+            )
+        
+        # Find or create tnLst (timing node list)
+        tnLst = timing.find('.//{http://schemas.openxmlformats.org/presentationml/2006/main}tnLst')
+        if tnLst is None:
+            tnLst = etree.SubElement(
+                timing,
+                '{http://schemas.openxmlformats.org/presentationml/2006/main}tnLst'
+            )
+        
+        # Create animation sequence
+        par = etree.SubElement(
+            tnLst,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}par'
+        )
+        
+        # Common time node
+        cTn = etree.SubElement(
+            par,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}cTn',
+            attrib={
+                'id': str(len(tnLst) + 1),
+                'dur': 'indefinite',
+                'nodeType': 'clickEffect'
+            }
+        )
+        
+        # Start conditions - triggers on click
+        stCondLst = etree.SubElement(
+            cTn,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}stCondLst'
+        )
+        cond = etree.SubElement(
+            stCondLst,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}cond',
+            attrib={'evt': 'onClick', 'delay': str(int(delay_seconds * 1000))}
+        )
+        tgtEl = etree.SubElement(
+            cond,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}tgtEl'
+        )
+        etree.SubElement(
+            tgtEl,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}sldTgt'
+        )
+        
+        # Child time nodes
+        childTnLst = etree.SubElement(
+            cTn,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}childTnLst'
+        )
+        
+        # Animation sequence
+        seq = etree.SubElement(
+            childTnLst,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}seq',
+            attrib={'concurrent': '1', 'nextAc': 'seek'}
+        )
+        
+        # Sequence common time node
+        seqCTn = etree.SubElement(
+            seq,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}cTn',
+            attrib={'id': str(len(tnLst) + 2), 'dur': 'indefinite', 'nodeType': 'mainSeq'}
+        )
+        
+        # Sequence child time nodes
+        seqChildTnLst = etree.SubElement(
+            seqCTn,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}childTnLst'
+        )
+        
+        # Animation parallel node
+        animPar = etree.SubElement(
+            seqChildTnLst,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}par'
+        )
+        
+        # Animation common time node
+        animCTn = etree.SubElement(
+            animPar,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}cTn',
+            attrib={'id': str(len(tnLst) + 3), 'fill': 'hold'}
+        )
+        
+        # Start conditions for animation
+        animStCondLst = etree.SubElement(
+            animCTn,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}stCondLst'
+        )
+        etree.SubElement(
+            animStCondLst,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}cond',
+            attrib={'delay': '0'}
+        )
+        
+        # Animation child time nodes
+        animChildTnLst = etree.SubElement(
+            animCTn,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}childTnLst'
+        )
+        
+        # Set effect (makes it appear)
+        set_elem = etree.SubElement(
+            animChildTnLst,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}set'
+        )
+        
+        # Set common time node
+        setCTn = etree.SubElement(
+            set_elem,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}cBhvr'
+        )
+        
+        # Target element
+        cBhvrCTn = etree.SubElement(
+            setCTn,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}cTn',
+            attrib={'id': str(len(tnLst) + 4), 'dur': '1', 'fill': 'hold'}
+        )
+        
+        cBhvrTgtEl = etree.SubElement(
+            setCTn,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}tgtEl'
+        )
+        
+        spTgt = etree.SubElement(
+            cBhvrTgtEl,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}spTgt',
+            attrib={'spid': str(shape.shape_id)}
+        )
+        
+        # Attribute name
+        attrNameLst = etree.SubElement(
+            setCTn,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}attrNameLst'
+        )
+        etree.SubElement(
+            attrNameLst,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}attrName'
+        ).text = 'style.visibility'
+        
+        # To value (visible)
+        to = etree.SubElement(
+            set_elem,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}to'
+        )
+        strVal = etree.SubElement(
+            to,
+            '{http://schemas.openxmlformats.org/presentationml/2006/main}strVal'
+        )
+        strVal.attrib['val'] = 'visible'
+        
+        # Initially hide the shape
+        shape.element.attrib['hidden'] = '1'
+        
+        return True
+        
+    except Exception as e:
+        print(f"⚠️  Could not add animation: {e}")
+        return False
+
+
+def add_fade_animation(slide, shape, duration_seconds=0.5, delay_seconds=0):
+    """
+    Add a 'Fade' animation to a shape that triggers on click
+    
+    Args:
+        slide: The slide object
+        shape: The shape to animate
+        duration_seconds: Duration of fade effect
+        delay_seconds: Delay before animation starts
+    """
+    try:
+        # Similar to appear but with fade effect
+        # For now, we'll use appear as fade is more complex
+        # You can expand this with opacity animations
+        return add_appear_animation(slide, shape, delay_seconds)
+    except Exception as e:
+        print(f"⚠️  Could not add fade animation: {e}")
+        return False
 
 
 # === OVERFLOW DETECTION ===
@@ -380,14 +290,14 @@ def is_list_content(lines):
     if not lines:
         return False
     
-    bullet_patterns = [r'^\s*[â€¢\-\*]', r'^\s*\d+\.', r'^\s*[a-z]\)', r'^\s*[A-Z]\.']
+    bullet_patterns = [r'^\s*[•\-\*]', r'^\s*\d+\.', r'^\s*[a-z]\)', r'^\s*[A-Z]\.']
     matching = sum(1 for line in lines if any(re.match(p, line) for p in bullet_patterns))
     return matching >= len(lines) * 0.5
 
 
 def clean_bullet_marker(text):
     """Remove common bullet markers from text"""
-    text = re.sub(r'^\s*[â€¢\-\*]\s*', '', text)
+    text = re.sub(r'^\s*[•\-\*]\s*', '', text)
     text = re.sub(r'^\s*\d+\.\s*', '', text)
     text = re.sub(r'^\s*[a-z]\)\s*', '', text)
     return text
@@ -427,28 +337,39 @@ def apply_style(paragraph, style_name, config):
 
 
 def parse_styled_text(text):
-    """Parse text with inline style markers"""
+    """Parse text with inline style markers and animation tags"""
+    # Check for animation tags
+    has_step = '[step]' in text.lower()
+    has_appear = '[appear]' in text.lower()
+    
+    # Remove animation tags for style parsing
+    text = re.sub(r'\[(step|appear)\]\s*', '', text, flags=re.IGNORECASE)
+    
+    # Parse style tags
     match = re.match(r'^\[(\w+)\]\s*(.+)', text)
     if match:
-        return match.group(1), match.group(2)
-    return None, text
+        style = match.group(1)
+        text = match.group(2)
+        return style, text, has_step, has_appear
+    
+    return None, text, has_step, has_appear
 
 
 # === MATH/SPECIAL CHARACTERS ===
 def process_math(text):
     """Convert simple math notation to Unicode symbols"""
-    superscripts = {'0': 'â°', '1': 'Â¹', '2': 'Â²', '3': 'Â³', '4': 'â´', 
-                    '5': 'âµ', '6': 'â¶', '7': 'â·', '8': 'â¸', '9': 'â¹'}
+    superscripts = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', 
+                    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'}
     text = re.sub(r'\^(\d)', lambda m: superscripts.get(m.group(1), m.group(1)), text)
     
-    subscripts = {'0': 'â‚€', '1': 'â‚', '2': 'â‚‚', '3': 'â‚ƒ', '4': 'â‚„',
-                  '5': 'â‚…', '6': 'â‚†', '7': 'â‚‡', '8': 'â‚ˆ', '9': 'â‚‰'}
+    subscripts = {'0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+                  '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉'}
     text = re.sub(r'_(\d)', lambda m: subscripts.get(m.group(1), m.group(1)), text)
     
     replacements = {
-        '<=': 'â‰¤', '>=': 'â‰¥', '!=': 'â‰ ', '~=': 'â‰ˆ',
-        'alpha': 'Î±', 'beta': 'Î²', 'gamma': 'Î³', 'delta': 'Î´',
-        'pi': 'Ï€', 'theta': 'Î¸', 'sigma': 'Ïƒ'
+        '<=': '≤', '>=': '≥', '!=': '≠', '~=': '≈',
+        'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ',
+        'theta': 'θ', 'sigma': 'σ'
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
@@ -478,10 +399,10 @@ def validate_slide(slide_data, slide_num, config):
     return issues
 
 
-# === ADD TEXTBOX ===
+# === ADD TEXTBOX WITH ANIMATION SUPPORT ===
 def add_textbox(slide, left, top, width, height, lines, font_size=22, label=None, 
                 config=None, v_align=MSO_ANCHOR.TOP):
-    """Enhanced textbox with overflow detection, list formatting, and styling"""
+    """Enhanced textbox with overflow detection, list formatting, styling, and animations"""
     if not lines:
         return None
     
@@ -492,6 +413,13 @@ def add_textbox(slide, left, top, width, height, lines, font_size=22, label=None
     joined = process_math(joined)
     text_length = len(joined)
     
+    # Check if any lines have [step] or [appear] tags
+    has_animations = any('[step]' in line.lower() or '[appear]' in line.lower() for line in lines)
+    
+    # If animations detected, use step textboxes
+    if has_animations and config.get("enable_animations", True):
+        return add_animated_textboxes(slide, left, top, width, lines, font_size, label, config)
+    
     # Overflow detection
     if config.get("enable_overflow_warnings", True):
         try:
@@ -499,7 +427,7 @@ def add_textbox(slide, left, top, width, height, lines, font_size=22, label=None
             h = height.inches if hasattr(height, 'inches') else height
             overflow, needed, available = check_text_overflow(joined, font_size, w, h)
             if overflow:
-                print(f"âš ï¸  Potential overflow in '{label}': needs {needed} lines, has {available}")
+                print(f"⚠️  Potential overflow in '{label}': needs {needed} lines, has {available}")
         except Exception:
             pass
     
@@ -512,11 +440,6 @@ def add_textbox(slide, left, top, width, height, lines, font_size=22, label=None
         font_size = min(font_size, 14)
     if text_length > 1000:
         font_size = min(font_size, 12)
-    
-    # Handle [step] animations
-    step_lines = [l for l in lines if "[step]" in l.lower()]
-    if step_lines:
-        return add_step_textboxes(slide, left, top, width, lines, font_size, label, config)
     
     # Detect list formatting
     is_list = is_list_content(lines)
@@ -536,7 +459,7 @@ def add_textbox(slide, left, top, width, height, lines, font_size=22, label=None
         if not item.strip():
             continue
         
-        style, text = parse_styled_text(item)
+        style, text, _, _ = parse_styled_text(item)
         text = process_math(text)
         
         if first:
@@ -567,22 +490,27 @@ def add_textbox(slide, left, top, width, height, lines, font_size=22, label=None
     return box
 
 
-def add_step_textboxes(slide, left, top, width, lines, font_size, label, config):
-    """Create separate textboxes for each [step] line"""
+def add_animated_textboxes(slide, left, top, width, lines, font_size, label, config):
+    """
+    Create separate textboxes for animated content
+    Supports both [step] (sequential) and [appear] (on click) animations
+    """
     top_offset = top
     boxes = []
+    animation_delay = 0
     
     for i, item in enumerate(lines):
         if not item.strip():
             continue
         
-        text = re.sub(r'\[step\]\s*', '', item, flags=re.IGNORECASE)
+        # Parse text and check for animations
+        style, text, has_step, has_appear = parse_styled_text(item)
         text = process_math(text)
-        style, text = parse_styled_text(text)
         
+        # Create textbox
         box = slide.shapes.add_textbox(left, top_offset, width, Inches(0.6))
         if label:
-            box.name = f"{label}_Step{i+1}"
+            box.name = f"{label}_{'Step' if has_step else 'Item'}{i+1}"
         
         tf = box.text_frame
         tf.word_wrap = True
@@ -595,6 +523,16 @@ def add_step_textboxes(slide, left, top, width, lines, font_size, label, config)
         else:
             p.font.size = Pt(font_size)
             p.font.color.rgb = RGBColor(*config["text_color"])
+        
+        # Add animation if enabled
+        if config.get("enable_animations", True) and (has_step or has_appear):
+            if has_step:
+                # Sequential: each item appears after the previous
+                add_appear_animation(slide, box, delay_seconds=animation_delay * 0.5)
+                animation_delay += 1
+            else:
+                # Appear on click (no delay between items with [appear])
+                add_appear_animation(slide, box, delay_seconds=0)
         
         boxes.append(box)
         top_offset += Inches(0.65)
@@ -705,7 +643,7 @@ def parse_content_file(filename):
 
 # === BUILD PRESENTATION ===
 def build_presentation(slides, output_name, config=None):
-    """Build presentation with custom styling"""
+    """Build presentation with custom styling and animations"""
     if config is None:
         config = DEFAULT_CONFIG
     
@@ -752,19 +690,52 @@ def build_presentation(slides, output_name, config=None):
         p.font.bold = True
         p.font.color.rgb = RGBColor(*config["title_color"])
         
-        # Flexible Layout Logic - Handles ANY combination
-        dimensions = {
-            'CONTENT_LEFT': CONTENT_LEFT,
-            'CONTENT_TOP': CONTENT_TOP,
-            'CONTENT_WIDTH': CONTENT_WIDTH,
-            'CONTENT_HEIGHT': CONTENT_HEIGHT,
-            'COLUMN_WIDTH': COLUMN_WIDTH,
-            'COLUMN_GAP': COLUMN_GAP,
-            'ROW_GAP': ROW_GAP
-        }
+        # Layout logic
+        if s["left_top"] and s["left_bottom"] and not (s["right_top"] or s["right_bottom"]):
+            # Reading slide
+            reading_height = CONTENT_HEIGHT * 0.65
+            questions_height = CONTENT_HEIGHT * 0.35 - ROW_GAP
+            
+            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP,
+                       CONTENT_WIDTH, reading_height, s["left_top"], 
+                       label="ReadingText", config=config, v_align=MSO_ANCHOR.TOP)
+            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP + reading_height + ROW_GAP,
+                       CONTENT_WIDTH, questions_height, s["left_bottom"], 
+                       label="ReadingQuestions", config=config, v_align=MSO_ANCHOR.TOP)
         
-        layout_engine = FlexibleLayoutEngine(s, dimensions)
-        layout_engine.render(slide, config, add_textbox)
+        elif any([s["left_top"], s["right_top"], s["left_bottom"], s["right_bottom"]]):
+            # 4-box slide
+            half_height = (CONTENT_HEIGHT - ROW_GAP) / 2
+            box_font_size = 18
+            
+            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP,
+                       COLUMN_WIDTH, half_height, s["left_top"], 
+                       font_size=box_font_size, label="LeftTop", config=config)
+            add_textbox(slide, CONTENT_LEFT + COLUMN_WIDTH + COLUMN_GAP, CONTENT_TOP,
+                       COLUMN_WIDTH, half_height, s["right_top"], 
+                       font_size=box_font_size, label="RightTop", config=config)
+            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP + half_height + ROW_GAP,
+                       COLUMN_WIDTH, half_height, s["left_bottom"], 
+                       font_size=box_font_size, label="LeftBottom", config=config)
+            add_textbox(slide, CONTENT_LEFT + COLUMN_WIDTH + COLUMN_GAP,
+                       CONTENT_TOP + half_height + ROW_GAP,
+                       COLUMN_WIDTH, half_height, s["right_bottom"], 
+                       font_size=box_font_size, label="RightBottom", config=config)
+        
+        elif s["left"] or s["right"]:
+            # Two-column layout
+            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP,
+                       COLUMN_WIDTH, CONTENT_HEIGHT, s["left"], 
+                       label="Left", config=config)
+            add_textbox(slide, CONTENT_LEFT + COLUMN_WIDTH + COLUMN_GAP, CONTENT_TOP,
+                       COLUMN_WIDTH, CONTENT_HEIGHT, s["right"], 
+                       label="Right", config=config)
+        
+        else:
+            # Single-column content
+            add_textbox(slide, CONTENT_LEFT, CONTENT_TOP,
+                       CONTENT_WIDTH, CONTENT_HEIGHT, s["content"], 
+                       label="Content", config=config)
         
         # Add slide numbers
         if config.get("enable_slide_numbers", True):
@@ -775,10 +746,12 @@ def build_presentation(slides, output_name, config=None):
             notes_slide = slide.notes_slide
             notes_tf = notes_slide.notes_text_frame
             for note in s["notes"]:
-                notes_tf.add_paragraph().text = f"â€¢ {note}"
+                notes_tf.add_paragraph().text = f"• {note}"
     
     prs.save(output_name)
-    print(f"âœ… Presentation created: {output_name}")
+    print(f"✅ Presentation created: {output_name}")
+    if config.get("enable_animations", True):
+        print(f"🎬 Animations enabled - items with [step] or [appear] will animate on click")
 
 
 # === MAIN ===
