@@ -770,8 +770,19 @@ if __name__ == "__main__":
             config = merge_config(user_config)
     
     slides = parse_content_file(input_file)
-    
-    base_name = input_file.replace(".txt", "")
-    output_name = base_name + "_presentation.pptx"
-    
+
+    # Use presentation title as filename
+    if slides and slides[0]["title"]:
+        # Sanitize title for use as filename
+        safe_title = slides[0]["title"]
+        # Remove or replace characters that are invalid in filenames
+        for char in ['<', '>', ':', '"', '/', '\\', '|', '?', '*']:
+            safe_title = safe_title.replace(char, '')
+        safe_title = safe_title.strip()
+        output_name = safe_title + ".pptx"
+    else:
+        # Fallback to input filename if no title found
+        base_name = input_file.replace(".txt", "")
+        output_name = base_name + "_presentation.pptx"
+
     build_presentation(slides, output_name, config)

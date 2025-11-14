@@ -479,15 +479,25 @@ def generate_presentation():
             temp_output = "temp_presentation.pptx"
             slides = parse_content_file(temp_input)
             build_presentation(slides, temp_output, st.session_state.custom_config)
-            
+
+            # Generate download filename from presentation title
+            if slides and slides[0]["title"]:
+                safe_title = slides[0]["title"]
+                for char in ['<', '>', ':', '"', '/', '\\', '|', '?', '*']:
+                    safe_title = safe_title.replace(char, '')
+                safe_title = safe_title.strip()
+                download_filename = safe_title + ".pptx"
+            else:
+                download_filename = "presentation.pptx"
+
             with open(temp_output, 'rb') as f:
                 pptx_data = f.read()
-            
+
             st.success("✅ Presentation generated successfully!")
             st.download_button(
                 label="📥 Download PowerPoint",
                 data=pptx_data,
-                file_name="presentation.pptx",
+                file_name=download_filename,
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
             )
             
